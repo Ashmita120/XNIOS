@@ -11,7 +11,10 @@ fairness for the multi-objective view.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
+
+from .link import MAX_SPECTRAL_EFF
 
 
 @dataclass
@@ -81,6 +84,17 @@ class MetricsCollector:
         self.recovery_times = []                              # s from interruption to re-service
         self.proactive_handovers = 0                          # seamless pre-LOS switches
 
+        # --- served-link quality (one sample per active link per step) ---
+        # Needed to explain *why* a configuration performs as it does: at the
+        # modcod cap extra SNR buys nothing, so a change that trades SNR for
+        # contact time can win. `inr` is the interference-to-noise ratio the
+        # phased array inflicts on itself.
+        self.link_samples = 0
+        self.sinr_db_sum = 0.0
+        self.inr_sum = 0.0
+        self.capped_samples = 0                               # at MAX_SPECTRAL_EFF
+        self.outage_samples = 0                               # SINR below lock -> rate 0
+
         self.sim_time = 0.0
 
     # --- event hooks called by the simulator ---
@@ -130,6 +144,17 @@ class MetricsCollector:
 
     def note_proactive_handover(self):
         self.proactive_handovers += 1
+
+    def note_link(self, sinr_lin: float, inr: float, rate_bps: float):
+        """One served link, one step. Called from the rate computation."""
+        self.link_samples += 1
+        self.inr_sum += inr
+        if sinr_lin > 0:
+            self.sinr_db_sum += 10.0 * math.log10(sinr_lin)
+            if math.log2(1.0 + sinr_lin) >= MAX_SPECTRAL_EFF:
+                self.capped_samples += 1
+        if rate_bps <= 0:
+            self.outage_samples += 1
 
     # --- finalise ---
     def finalize(self, sim_time: float) -> Results:
@@ -224,6 +249,14 @@ class MetricsCollector:
             "mean_recovery_s": (sum(self.recovery_times) / len(self.recovery_times)
                                 if self.recovery_times else 0.0),
             "proactive_handovers": self.proactive_handovers,
+            "mean_sinr_db": (self.sinr_db_sum / self.link_samples
+                             if self.link_samples else 0.0),
+            "mean_inr": self.inr_sum / self.link_samples if self.link_samples else 0.0,
+            "modcod_capped_frac": (self.capped_samples / self.link_samples
+                                   if self.link_samples else 0.0),
+            "link_outage_frac": (self.outage_samples / self.link_samples
+                                 if self.link_samples else 0.0),
+            "link_samples": self.link_samples,
         }
         per_sat = {
             s: {

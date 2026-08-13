@@ -21,6 +21,13 @@ ZENITH_GAS_DB = 0.3          # clear-air gaseous loss at zenith
 MIN_SNR_DB = -2.0            # below this, no lock -> rate 0
 MAX_SPECTRAL_EFF = 5.5       # bps/Hz cap (~DVB-S2X high modcod)
 
+# The projected aperture shrinks as cos(scan), so both the gain loss and the
+# beam width run off that same cosine. Neither is extrapolated past this floor
+# (scan ~87.1 deg): a first-order aperture model has nothing useful to say
+# beyond it, and 1/cos is singular at 90. One constant so the two terms cannot
+# drift apart.
+COS_SCAN_FLOOR = 0.05
+
 
 def beam_reachable(elev_deg: float, station) -> bool:
     """A phased array can only form a beam within max_scan_deg of boresight (zenith);
@@ -38,7 +45,36 @@ def _scan_loss_db(elev_deg: float, station) -> float:
     if not getattr(station, "phased_array", False):
         return 0.0
     scan = math.radians(90.0 - max(elev_deg, 0.5))
-    return -10.0 * station.scan_loss_exp * math.log10(max(math.cos(scan), 0.05))
+    return -10.0 * station.scan_loss_exp * math.log10(max(math.cos(scan), COS_SCAN_FLOOR))
+
+
+def scan_beamwidth_deg(elev_deg: float, station) -> float:
+    """Beam width at this scan angle — first-order projected-aperture broadening.
+
+    A planar array steered `scan` degrees off boresight presents an aperture
+    foreshortened by cos(scan), and beamwidth goes inversely with aperture:
+
+        beamwidth(scan) = beamwidth_0 / cos(scan),    scan = 90 - elevation
+
+    So a beam at 30 deg elevation (60 deg scan) is twice as wide as at zenith,
+    and at 10 deg elevation (80 deg scan) it is ~5.8x wider. Wider beams overlap
+    more, which is what couples the steering envelope to co-channel interference.
+
+    This is *only* the projected-aperture term. It is not a radiation-pattern
+    model: grating lobes, element patterns and cross-pol are all absent, because
+    element spacing is not represented in the station configuration. Results at
+    large scan angles are therefore conditional on this simplification and say
+    nothing about hardware feasibility past the grating-lobe limit.
+
+    Opt-in via `station.beam_broadening`. Left False, this returns the fixed
+    configured width and every earlier result reproduces bit-identically.
+    """
+    w0 = float(station.beamwidth_deg)
+    if not (getattr(station, "phased_array", False)
+            and getattr(station, "beam_broadening", False)):
+        return w0
+    scan = math.radians(90.0 - max(elev_deg, 0.5))
+    return w0 / max(math.cos(scan), COS_SCAN_FLOOR)
 
 
 def carrier_to_noise_density_dbhz(range_km, elev_deg, sat, station,

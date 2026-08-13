@@ -19,7 +19,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from . import orbit as orb
-from .link import achievable_rate_bps, snr_linear, rate_from_sinr
+from .link import (achievable_rate_bps, snr_linear, rate_from_sinr,
+                   scan_beamwidth_deg)
 from .weather import WeatherModel
 from .state import NetworkState, SatView, StationView, VisibilityView
 from .metrics import MetricsCollector, Results
@@ -191,7 +192,8 @@ class Simulator:
             alloc_bw = self._allocate(session, vis_by_sat, backlog, t, dyn)
             alloc_pw = self._allocate_power(session, vis_by_sat, alloc_bw, t)
             diag = {} if self.tel is not None else None       # per-link RF detail for telemetry
-            rates = self._compute_rates(session, vis_by_sat, alloc_bw, alloc_pw, t, diag)
+            rates = self._compute_rates(session, vis_by_sat, alloc_bw, alloc_pw, t, diag,
+                                        metrics=metrics)
             for sid, (gid, _beam) in list(session.items()):
                 v = vis_by_sat.get(sid, {}).get(gid)
                 if v is None:
@@ -400,7 +402,8 @@ class Simulator:
                                               rain_zenith_db=rain, bandwidth_hz=bw,
                                               tx_power_w=pw, gt_penalty_db=gt)
 
-    def _compute_rates(self, session, vis_by_sat, alloc_bw, alloc_pw, t, diag=None) -> dict:
+    def _compute_rates(self, session, vis_by_sat, alloc_bw, alloc_pw, t, diag=None,
+                       metrics=None) -> dict:
         """Per-link data rate. For phased-array stations serving >1 beam, resolve
         co-channel interference (C/(N+I)) after a frequency allocation; otherwise
         the interference-free rate.
@@ -434,6 +437,8 @@ class Simulator:
             if not (getattr(station, "phased_array", False) and len(links) > 1):
                 for sid, (v, bw, snr) in info.items():
                     rates[sid] = rate_from_sinr(bw, snr)
+                    if metrics is not None:
+                        metrics.note_link(snr, 0.0, rates[sid])
                     if diag is not None:
                         diag[sid] = {"snr": snr, "sinr": snr, "inr": 0.0, "bw": bw,
                                      "pw": alloc_pw.get(sid, self.sats[sid].tx_power_w),
@@ -445,8 +450,13 @@ class Simulator:
             # so twice as many beams can share the spectrum before they interfere.
             beams = [BeamNode(sid, v.az_deg, v.elev_deg) for sid, (v, _b, _s) in info.items()]
             n_slots = station.n_channels * (2 if getattr(station, "dual_pol", False) else 1)
-            thresh = 2.0 * station.beamwidth_deg
-            sep_fn = lambda a, b: (self._angular_sep(info[a][0], info[b][0]), thresh)
+            # Model A: one fixed width for every beam. Model B: each beam's width
+            # follows its own scan angle, so a low pass is a wide beam.
+            width = {sid: scan_beamwidth_deg(v.elev_deg, station)
+                     for sid, (v, _b, _s) in info.items()}
+            # Two beams need separating by whichever of them is wider.
+            sep_fn = lambda a, b: (self._angular_sep(info[a][0], info[b][0]),
+                                   2.0 * max(width[a], width[b]))
             channels = self.freq_allocator.allocate(beams, n_slots, sep_fn)
             for sid, (v, bw, snr) in info.items():
                 inr = 0.0
@@ -454,8 +464,11 @@ class Simulator:
                     if oid == sid or channels.get(oid) != channels.get(sid):
                         continue                         # different channel -> no interference
                     sep = self._angular_sep(v, ov)
-                    inr += osnr * self._sidelobe(sep, station.beamwidth_deg)
+                    # the victim's own pattern sets how much of the neighbour leaks in
+                    inr += osnr * self._sidelobe(sep, width[sid])
                 rates[sid] = rate_from_sinr(bw, snr / (1.0 + inr))
+                if metrics is not None:
+                    metrics.note_link(snr / (1.0 + inr), inr, rates[sid])
                 if diag is not None:
                     diag[sid] = {"snr": snr, "sinr": snr / (1.0 + inr), "inr": inr,
                                  "bw": bw, "pw": alloc_pw.get(sid, self.sats[sid].tx_power_w),

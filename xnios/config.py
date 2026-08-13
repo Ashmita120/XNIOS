@@ -156,6 +156,7 @@ def _build_stations(cfg):
             scan_loss_exp=st.get("scan_loss_exp", 1.3),
             max_scan_deg=st.get("max_scan_deg", 60.0),
             dual_pol=st.get("dual_pol", False),
+            beam_broadening=st.get("beam_broadening", False),
         ))
         if "weather" in st:
             wx[st["id"]] = st["weather"]

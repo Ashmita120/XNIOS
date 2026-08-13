@@ -94,3 +94,7 @@ class GroundStation:
                                          # 60 deg -> reachable elevation >= 30 deg (FOV 120 deg)
     dual_pol: bool = False               # dual polarisation: doubles the reuse slots
                                          # (channel x pol), so more beams share a frequency
+    beam_broadening: bool = False        # Model B: beam width grows as 1/cos(scan) off
+                                         # boresight, so steering widens the beam and
+                                         # raises co-channel interference. False (Model A)
+                                         # holds the width fixed at beamwidth_deg.
