@@ -1,0 +1,30 @@
+========================================================================================
+Exp4 placement: 6 strategies x (3 seeds + 1 oracle) = 24 total runs
+========================================================================================
+[1/24] random      | ORACLE ceiling ->   971.9 Gb (2.3s)
+[2/24] random      | seed=0 -> delivered=  946.4Gb completion= 70.8% sla= 62.5% wait=  434.6s (2.74s)
+[3/24] random      | seed=1 -> delivered= 1094.1Gb completion= 83.3% sla= 70.8% wait=  247.9s (2.15s)
+[4/24] random      | seed=2 -> delivered= 1024.5Gb completion= 70.8% sla= 60.4% wait=  537.1s (2.66s)
+[5/24] grid        | ORACLE ceiling ->   758.0 Gb (2.4s)
+[6/24] grid        | seed=0 -> delivered=  727.3Gb completion= 52.1% sla= 31.2% wait=  701.0s (4.12s)
+[7/24] grid        | seed=1 -> delivered=  571.2Gb completion= 52.1% sla= 33.3% wait=  615.4s (4.08s)
+[8/24] grid        | seed=2 -> delivered=  616.1Gb completion= 50.0% sla= 31.2% wait=  449.2s (3.99s)
+[9/24] clustered   | ORACLE ceiling ->   817.1 Gb (2.7s)
+[10/24] clustered   | seed=0 -> delivered=  795.7Gb completion= 50.0% sla= 47.9% wait=  678.3s (3.34s)
+[11/24] clustered   | seed=1 -> delivered=  813.2Gb completion= 52.1% sla= 52.1% wait=  768.3s (3.16s)
+[12/24] clustered   | seed=2 -> delivered=  713.0Gb completion= 64.6% sla= 62.5% wait=  327.1s (2.90s)
+[13/24] coastal     | ORACLE ceiling ->  1070.3 Gb (2.3s)
+[14/24] coastal     | seed=0 -> delivered= 1062.4Gb completion= 79.2% sla= 72.9% wait=  670.8s (2.35s)
+[15/24] coastal     | seed=1 -> delivered= 1089.6Gb completion= 83.3% sla= 79.2% wait=  666.5s (2.19s)
+[16/24] coastal     | seed=2 -> delivered= 1058.6Gb completion= 70.8% sla= 68.8% wait= 1061.7s (2.44s)
+[17/24] equatorial  | ORACLE ceiling ->   762.9 Gb (2.9s)
+[18/24] equatorial  | seed=0 -> delivered=  728.1Gb completion= 60.4% sla= 60.4% wait=  818.1s (3.49s)
+[19/24] equatorial  | seed=1 -> delivered=  673.0Gb completion= 58.3% sla= 58.3% wait=  616.7s (3.01s)
+[20/24] equatorial  | seed=2 -> delivered=  714.3Gb completion= 47.9% sla= 47.9% wait=  772.3s (3.06s)
+[21/24] optimized   | ORACLE ceiling ->   678.2 Gb (2.2s)
+[22/24] optimized   | seed=0 -> delivered=  649.0Gb completion= 62.5% sla= 56.2% wait=  549.6s (2.93s)
+[23/24] optimized   | seed=1 -> delivered=  848.7Gb completion= 64.6% sla= 52.1% wait=  716.9s (2.97s)
+[24/24] optimized   | seed=2 -> delivered=  707.9Gb completion= 54.2% sla= 45.8% wait=  970.8s (3.77s)
+========================================================================================
+Done: 24 runs in 1.2 min. Results -> E:\Antenna\experiments\results\exp4_placement.csv
+========================================================================================

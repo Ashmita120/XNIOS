@@ -1,0 +1,36 @@
+{
+  "name": "realism demo - dynamic weather + a station failure mid-pass + handover",
+  "seed": 0,
+  "t_mid": 600,
+  "sim": { "duration_s": 1200, "dt_s": 10, "decision_interval_s": 10, "handover": true, "handover_lead_s": 40 },
+
+  "_comment_weather": "provider 'dynamic' = weather evolves as a Markov chain during the run.",
+  "weather": { "provider": "dynamic", "dwell_s": 180 },
+
+  "_comment_dynamics": "GS-0 suffers a power failure at t=560s and recovers at t=760s; its in-progress sessions are interrupted and re-acquire on healthy stations (self-healing). You can also use 'random' Poisson failures.",
+  "dynamics": {
+    "events": [
+      { "t": 560, "station": "GS-0", "action": "station_fail" },
+      { "t": 760, "station": "GS-0", "action": "station_recover" },
+      { "t": 400, "station": "GS-1", "action": "beam_fail", "value": 2 },
+      { "t": 900, "station": "GS-1", "action": "beam_recover", "value": 2 }
+    ]
+  },
+
+  "stations": [
+    { "id": "GS-0", "place_under": {"plane": 0, "dlat": 0,  "dlon": 0},  "num_beams": 4, "g_over_t_dbk": 24, "phased_array": true, "n_channels": 4, "dual_pol": true },
+    { "id": "GS-1", "place_under": {"plane": 0, "dlat": 4,  "dlon": -4}, "num_beams": 4, "g_over_t_dbk": 24, "phased_array": true, "n_channels": 4, "dual_pol": true },
+    { "id": "GS-2", "place_under": {"plane": 0, "dlat": -4, "dlon": 4},  "num_beams": 4, "g_over_t_dbk": 24, "phased_array": true, "n_channels": 4, "dual_pol": true }
+  ],
+
+  "satellites": {
+    "mode": "generate",
+    "count": 24,
+    "planes": [ {"inc": 53, "raan": 0, "altitude_km": 600}, {"inc": 53, "raan": 6, "altitude_km": 600} ],
+    "arg_lat_spread_deg": 10,
+    "freq_ghz": 8.2, "bandwidth_mhz": 50, "tx_power_w": 5,
+    "backlog_gbit": { "classes": [2, 20, 80], "weights": [0.35, 0.4, 0.25] },
+    "tiers": ["research", "commercial", "commercial", "military", "emergency"],
+    "tier_deadline_s": { "emergency": 90, "military": 180, "commercial": 300, "research": 550 }
+  }
+}

@@ -1,0 +1,41 @@
+﻿satellite,demand (Gb),delivered (Gb),remaining (Gb),wait (s),served on,completed,next contact
+SAT-000,2.56,2.56,0,0,Bengaluru-ISTRAC,true,✓ done
+SAT-001,73.19,62.31,10.87,1565,Port-Blair,false,Thiruvananthapuram (+1.1 h)
+SAT-002,2.31,2.31,0,0,Port-Blair,true,✓ done
+SAT-003,94.89,94.89,0,5660,Port-Blair,true,✓ done
+SAT-004,88.83,88.83,0,30,Thiruvananthapuram,true,✓ done
+SAT-005,2.17,2.17,0,0,Port-Blair,true,✓ done
+SAT-006,68.5,68.5,0,0,Thiruvananthapuram,true,✓ done
+SAT-007,2.41,2.41,0,0,Port-Blair,true,✓ done
+SAT-008,23.94,23.94,0,0,Guwahati,true,✓ done
+SAT-009,2.08,2.08,0,0,Thiruvananthapuram,true,✓ done
+SAT-010,14.97,14.97,0,0,Port-Blair,true,✓ done
+SAT-011,2.06,2.06,0,0,Port-Blair,true,✓ done
+SAT-012,2.36,2.36,0,0,Thiruvananthapuram,true,✓ done
+SAT-013,18.62,18.62,0,30,Thiruvananthapuram,true,✓ done
+SAT-014,57.58,57.58,0,0,Port-Blair,true,✓ done
+SAT-015,2.31,2.31,0,0,Port-Blair,true,✓ done
+SAT-016,100.31,61.94,38.36,1570,Port-Blair,false,Thiruvananthapuram (+1.1 h)
+SAT-017,2.37,2.37,0,0,Port-Blair,true,✓ done
+SAT-018,76.13,76.13,0,25,Bengaluru-ISTRAC,true,✓ done
+SAT-019,2.14,2.14,0,0,Port-Blair,true,✓ done
+SAT-020,2.28,2.28,0,0,Port-Blair,true,✓ done
+SAT-021,2.38,2.38,0,10,Port-Blair,true,✓ done
+SAT-022,2.09,2.09,0,0,Thiruvananthapuram,true,✓ done
+SAT-023,2.16,2.16,0,0,Port-Blair,true,✓ done
+SAT-024,2.4,2.4,0,0,Thiruvananthapuram,true,✓ done
+SAT-025,64.88,64.88,0,0,Port-Blair,true,✓ done
+SAT-026,57.09,57.09,0,30,Port-Blair,true,✓ done
+SAT-027,1.49,1.49,0,0,Port-Blair,true,✓ done
+SAT-028,14.47,14.47,0,65,Thiruvananthapuram,true,✓ done
+SAT-029,2.49,2.49,0,0,Bengaluru-ISTRAC,true,✓ done
+SAT-030,2.21,2.21,0,0,Bengaluru-ISTRAC,true,✓ done
+SAT-031,72.43,72.43,0,15,Thiruvananthapuram,true,✓ done
+SAT-032,14.16,14.16,0,0,Port-Blair,true,✓ done
+SAT-033,87.15,87.15,0,25,Bengaluru-ISTRAC,true,✓ done
+SAT-034,14.15,14.15,0,0,Port-Blair,true,✓ done
+SAT-035,15.62,15.62,0,0,Port-Blair,true,✓ done
+SAT-036,1.83,1.83,0,0,Thiruvananthapuram,true,✓ done
+SAT-037,1.77,1.77,0,0,Port-Blair,true,✓ done
+SAT-038,1.63,1.63,0,0,Guwahati,true,✓ done
+SAT-039,24.51,24.51,0,5655,Port-Blair,true,✓ done

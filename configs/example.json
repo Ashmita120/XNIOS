@@ -1,0 +1,40 @@
+{
+  "name": "example - contended heterogeneous LEO (edit me!)",
+  "seed": 0,
+  "t_mid": 600,
+
+  "_comment_sim": "How long to simulate and how often to step/decide (seconds).",
+  "sim": {
+    "duration_s": 1200,
+    "dt_s": 5,
+    "decision_interval_s": 5
+  },
+
+  "_comment_stations": "Each station: how many beams, antenna quality (G/T dB/K), weather. Give explicit lat/lon, OR 'place_under' a satellite plane to drop it beneath a pass. Set num_beams>1 for a multi-satellite (proto phased-array) station.",
+  "_comment_stations": "Phased-array stations: 4 beams, 4 channels, dual polarisation, +-60 deg electronic steering (reachable elevation >= 30 deg).",
+  "stations": [
+    { "id": "GS-0", "place_under": {"plane": 0, "dlat": 0,  "dlon": 0},  "num_beams": 4, "g_over_t_dbk": 19, "weather": "rain",   "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60 },
+    { "id": "GS-1", "place_under": {"plane": 0, "dlat": 3,  "dlon": -3}, "num_beams": 4, "g_over_t_dbk": 25, "weather": "clear",  "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60 },
+    { "id": "GS-2", "place_under": {"plane": 0, "dlat": -3, "dlon": 3},  "num_beams": 4, "g_over_t_dbk": 24, "weather": "clear",  "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60 },
+    { "id": "GS-3", "place_under": {"plane": 0, "dlat": 2,  "dlon": 5},  "num_beams": 4, "g_over_t_dbk": 18, "weather": "cloudy", "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60 }
+  ],
+
+  "_comment_satellites": "mode 'generate' samples `count` satellites; freq in GHz, bandwidth in MHz, power in W, data in Gbit. Set counts/freq/data here to run YOUR experiment.",
+  "satellites": {
+    "mode": "generate",
+    "count": 30,
+    "planes": [
+      {"inc": 53, "raan": 0, "altitude_km": 600},
+      {"inc": 53, "raan": 6, "altitude_km": 600}
+    ],
+    "arg_lat_spread_deg": 10,
+
+    "freq_ghz": 8.2,
+    "bandwidth_mhz": 50,
+    "tx_power_w": 5,
+
+    "backlog_gbit": { "classes": [2, 20, 80], "weights": [0.35, 0.4, 0.25] },
+    "tiers": ["research", "commercial", "commercial", "military", "emergency"],
+    "tier_deadline_s": { "emergency": 90, "military": 180, "commercial": 300, "research": 550 }
+  }
+}

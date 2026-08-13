@@ -1,0 +1,37 @@
+# --- personal / non-project files (NOT part of X-NioS) ---------------------
+# Screen recordings, offer letter and personal PDFs live here. ~110 MB and
+# nothing to do with the twin. Excluded deliberately: git history is permanent.
+Python/
+*.mp4
+
+# --- binary writeups -------------------------------------------------------
+# The narrative docs (RESEARCH_PLAN.md, README_XNIOS.md, DASHBOARD.md,
+# testing.md) ARE tracked. These binaries are not: they don't diff, and
+# "X-NioS - ARCTROPY.pdf" may be partner material. Delete this block to
+# include them.
+*.pdf
+*.docx
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# --- Node / Next.js dashboard ----------------------------------------------
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+dashboard/next-env.d.ts
+
+# --- OS / editor -----------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

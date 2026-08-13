@@ -1,0 +1,27 @@
+{
+  "name": "bandwidth-allocation demo - one 6-beam station sharing a scarce 120 MHz pool",
+  "seed": 0,
+  "t_mid": 600,
+  "sim": { "duration_s": 1200, "dt_s": 5, "decision_interval_s": 5 },
+
+  "_comment": "One 6-beam station serves up to 6 satellites at once, all sharing only 120 MHz. Each link wants 50 MHz (6x50=300 >> 120), so bandwidth is scarce and the allocator choice (equal / priority / demand / maxrate) genuinely changes throughput, SLA and fairness.",
+  "stations": [
+    { "id": "GS-0", "place_under": {"plane": 0, "dlat": 0, "dlon": 0}, "num_beams": 6, "g_over_t_dbk": 24, "weather": "clear", "bandwidth_mhz": 120 }
+  ],
+
+  "satellites": {
+    "mode": "generate",
+    "count": 24,
+    "planes": [
+      {"inc": 53, "raan": 0, "altitude_km": 600},
+      {"inc": 53, "raan": 6, "altitude_km": 600}
+    ],
+    "arg_lat_spread_deg": 8,
+    "freq_ghz": 8.2,
+    "bandwidth_mhz": 50,
+    "tx_power_w": 5,
+    "backlog_gbit": { "classes": [2, 20, 80], "weights": [0.35, 0.4, 0.25] },
+    "tiers": ["research", "commercial", "commercial", "military", "emergency"],
+    "tier_deadline_s": { "emergency": 90, "military": 180, "commercial": 300, "research": 550 }
+  }
+}

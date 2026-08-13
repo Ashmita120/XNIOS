@@ -1,0 +1,35 @@
+# X-NioS digital twin — v0 core has ZERO hard deps beyond numpy, so it runs anywhere.
+numpy>=1.24
+
+# --- optimization oracle (xnios/oracle.py) ---
+scipy>=1.11          # scipy.optimize.milp (HiGHS) — the optimal-throughput ceiling.
+                     # NOTE: we intentionally do NOT use OR-Tools: its numpy>=2.0.2 and
+                     # protobuf>=5.26 pins conflict with tensorflow/mediapipe. scipy's
+                     # HiGHS LP/MILP solves the same problem with zero conflicts.
+
+# --- UI (streamlit app.py) — the research/comparison front-end ---
+streamlit>=1.40      # the web UI
+pandas>=2.0          # results tables (also used by the UI)
+# altair ships with streamlit — used for the charts
+
+# --- V2: telemetry API (api/) + the operator console (web/) ---
+# xnios/telemetry.py and xnios/health.py themselves have NO new dependencies
+# (stdlib + the existing core), so the twin still runs anywhere. These two are
+# only needed to serve the console.
+#
+# The console has NO build-time dependencies at all: web/ is plain HTML/CSS/ES
+# modules, and its one runtime dependency (Preact + htm, ~12 kB) is loaded from a
+# CDN via an import map. There is no package.json and nothing to install.
+fastapi>=0.110       # REST + WebSocket app (api/main.py); also serves web/
+uvicorn>=0.27        # ASGI server:  python run_api.py    -> http://127.0.0.1:8000
+# websockets is pulled in by uvicorn[standard]; plain uvicorn works with:
+#   pip install "uvicorn[standard]"
+
+# --- added per phase (install when you reach them) ---
+# scipy>=1.10           # Hungarian assignment (Phase 8 / station selection)
+# ortools>=9.7          # MIP / CP-SAT scheduling & beam allocation (Phase 4/13)
+# matplotlib>=3.7       # plots for benchmark tables/figures
+# pandas>=2.0           # results tables / sweeps
+# skyfield>=1.46        # real TLE/SGP4 propagation (replaces synthetic orbit.py)
+# gymnasium>=0.29       # RL environment wrapper (Phase 14)
+# stable-baselines3     # PPO/SAC/DQN (Phase 14)

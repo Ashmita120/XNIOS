@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>X-NioS — AI Digital Twin</title>
+    <meta
+      name="description"
+      content="Operator console for the X-NioS satellite ground-station digital twin: live telemetry, network health and decision provenance."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+
+    <!--
+      The only third-party code in the console: Preact (declarative re-render) and
+      htm (JSX-like template literals, parsed at runtime). ~12 kB gzipped, no build
+      step, no node_modules.
+
+      `?external=preact` keeps htm from bundling its own copy — it emits a bare
+      `import ... from "preact"` which the browser resolves through this map, so
+      there is exactly one Preact instance and hooks work.
+
+      To run fully offline, download the three files into web/vendor/ and repoint
+      these three entries at "./vendor/*.js". Nothing else changes.
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "preact": "https://esm.sh/preact@10.24.3",
+          "preact/hooks": "https://esm.sh/preact@10.24.3/hooks",
+          "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact"
+        }
+      }
+    </script>
+  </head>
+
+  <!-- theme-dark is the default, exactly as on arctropy.com -->
+  <body class="theme-dark">
+    <div id="root">
+      <div id="boot">
+        <span class="dotlive"></span>
+        <span>Loading console</span>
+      </div>
+    </div>
+
+    <script type="module" src="./js/app.js"></script>
+
+    <!--
+      There is no bundler to catch a bad import, so the failure mode of a module
+      graph is a blank page and a console message nobody opened. Put the actual
+      error on screen instead: #boot is still mounted until app.js clears it.
+    -->
+    <script>
+      (function () {
+        var shown = false;
+        function fail(what, detail) {
+          var boot = document.getElementById("boot");
+          if (shown || !boot) return; // already reported, or the app rendered
+          shown = true;
+          boot.innerHTML =
+            '<div class="boot-error"><b></b><pre></pre>' +
+            "<span>If the CDN is unreachable, vendor Preact and htm into " +
+            "<code>web/vendor/</code> and repoint the importmap in index.html.</span></div>";
+          boot.querySelector("b").textContent = what;
+          boot.querySelector("pre").textContent = detail;
+        }
+        // capture:true so failed <script type="module"> loads reach us too —
+        // resource errors do not bubble
+        window.addEventListener(
+          "error",
+          function (e) {
+            if (e.target && e.target !== window) {
+              fail("Could not load a module.", e.target.src || String(e.target));
+            } else {
+              fail(
+                "The console hit an error while starting.",
+                e.message + (e.filename ? "\n" + e.filename + ":" + e.lineno : ""),
+              );
+            }
+          },
+          true,
+        );
+        window.addEventListener("unhandledrejection", function (e) {
+          fail(
+            "The console hit an error while starting.",
+            String((e.reason && (e.reason.stack || e.reason.message)) || e.reason),
+          );
+        });
+        setTimeout(function () {
+          fail("The console did not start.", "Timed out loading the module graph.");
+        }, 8000);
+      })();
+    </script>
+  </body>
+</html>

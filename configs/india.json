@@ -1,0 +1,38 @@
+{
+  "name": "India network - 8 real ground stations (phased-array), live-weather ready",
+  "seed": 0,
+  "t_mid": 1800,
+  "sim": { "duration_s": 3600, "dt_s": 10, "decision_interval_s": 10 },
+
+  "_comment_weather": "Set weather.provider to 'openmeteo' (free, NO api key) to fetch real current conditions per station at run start. 'openweathermap' also works but needs an api_key / OWM_API_KEY. 'static' -> use the per-station 'weather' fields below.",
+  "weather": { "provider": "static" },
+
+  "_comment_stations": "Real Indian ground-station sites (approx lat/lon). All G/T >= 22 dB/K. Phased arrays: 4 simultaneous beams, 3.0 deg beamwidth, 4 frequency channels.",
+  "stations": [
+    { "id": "Delhi",              "lat": 28.61, "lon": 77.21, "g_over_t_dbk": 24, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" },
+    { "id": "Bengaluru-ISTRAC",   "lat": 13.03, "lon": 77.51, "g_over_t_dbk": 27, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" },
+    { "id": "Ahmedabad-SAC",      "lat": 23.03, "lon": 72.58, "g_over_t_dbk": 24, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" },
+    { "id": "Hyderabad-NRSC",     "lat": 17.03, "lon": 78.18, "g_over_t_dbk": 26, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" },
+    { "id": "Guwahati",           "lat": 26.14, "lon": 91.74, "g_over_t_dbk": 22, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" },
+    { "id": "Thiruvananthapuram", "lat": 8.52,  "lon": 76.94, "g_over_t_dbk": 23, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" },
+    { "id": "Lucknow-ISTRAC",     "lat": 26.85, "lon": 80.95, "g_over_t_dbk": 22, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" },
+    { "id": "Port-Blair",         "lat": 11.62, "lon": 92.73, "g_over_t_dbk": 22, "num_beams": 4, "phased_array": true, "beamwidth_deg": 3.0, "n_channels": 4, "dual_pol": true, "max_scan_deg": 60, "weather": "clear" }
+  ],
+
+  "satellites": {
+    "mode": "generate",
+    "count": 40,
+    "planes": [
+      {"inc": 53, "raan": 100, "altitude_km": 600},
+      {"inc": 53, "raan": 110, "altitude_km": 600},
+      {"inc": 97.6, "raan": 100, "altitude_km": 600}
+    ],
+    "arg_lat_spread_deg": 40,
+    "freq_ghz": 8.2,
+    "bandwidth_mhz": 50,
+    "tx_power_w": 5,
+    "backlog_gbit": { "classes": [2, 20, 80], "weights": [0.35, 0.4, 0.25] },
+    "tiers": ["research", "commercial", "commercial", "military", "emergency"],
+    "tier_deadline_s": { "emergency": 300, "military": 600, "commercial": 1200, "research": 2400 }
+  }
+}

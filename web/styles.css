@@ -1,0 +1,1803 @@
+/* ============================================================================
+   X-NioS operator console — stylesheet.
+
+   Hand-written: no Tailwind, no build step. The token block is lifted verbatim
+   from arctropy.com's style.css (and from the dashboard's former globals.css) so
+   the console still reads as the same product; everything below it replaces what
+   Tailwind used to generate, as named component classes rather than utilities.
+
+   Two themes, driven by a class on <body>: theme-dark (default) / theme-light.
+   --viz-rgb and --bg-rgb are rgb triplets so SVG layers and rgba() overlays stay
+   in sync with the active theme.
+
+   Breakpoints match the ones the Tailwind build used:
+     sm 640   md 768   lg 1024   xl 1280
+   ============================================================================ */
+
+:root,
+body.theme-dark {
+  --bg: #08080a;
+  --bg-2: #0c0c0f;
+  --bg-rgb: 8, 8, 10;
+  --line: #1b1b20;
+  --line-2: #2a2a30;
+  --mute: #6b6b73;
+  --dim: #9a9aa2;
+  --fg: #f2f2f3;
+  --viz-rgb: 255, 255, 255;
+  --sel-bg: #ffffff;
+  --sel-fg: #000000;
+
+  /* the only colour in the system: operator severity, desaturated to sit
+     inside a monochrome design without shouting */
+  --st-ok: #6f9c78;
+  --st-warn: #b39056;
+  --st-crit: #b3625c;
+}
+
+body.theme-light {
+  --bg: #f4f4f5;
+  --bg-2: #ececee;
+  --bg-rgb: 244, 244, 245;
+  --line: #e0e0e4;
+  --line-2: #cdcdd3;
+  --mute: #8a8a92;
+  --dim: #3f3f46;
+  --fg: #0c0c0f;
+  --viz-rgb: 12, 12, 15;
+  --sel-bg: #0c0c0f;
+  --sel-fg: #ffffff;
+
+  --st-ok: #3f6b49;
+  --st-warn: #7d6023;
+  --st-crit: #8c3a34;
+}
+
+:root {
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --pad: clamp(16px, 3vw, 40px);
+  --shell: 1320px;
+  --gap: 24px;
+}
+
+/* ------------------------------------------------------------------- base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Google Sans", system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background 0.6s var(--ease), color 0.6s var(--ease);
+}
+
+::selection {
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mute);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+code {
+  font-family: "Google Sans", ui-monospace, monospace;
+  color: var(--dim);
+}
+
+#boot {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.boot-error {
+  max-width: 70ch;
+  padding: 0 24px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.7;
+}
+.boot-error b {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 500;
+  color: var(--st-crit);
+}
+.boot-error pre {
+  overflow-x: auto;
+  margin: 0 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  font: inherit;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--dim);
+}
+
+/* --------------------------------------------------------------- keyframes */
+
+@keyframes beat {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--viz-rgb), 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(var(--viz-rgb), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--viz-rgb), 0);
+  }
+}
+
+@keyframes ping2 {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.5s var(--ease) both;
+}
+
+/* live indicator, straight from the site's .dotlive */
+.dotlive {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--viz-rgb));
+  box-shadow: 0 0 0 0 rgba(var(--viz-rgb), 0.7);
+  animation: beat 2.4s infinite;
+  vertical-align: middle;
+}
+
+/* ------------------------------------------------------ shared primitives */
+
+/* ARCTROPY's eyebrow: 11px, wide tracking, uppercase, with a leading rule */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7em;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: var(--mute);
+}
+.eyebrow::before {
+  content: "";
+  display: inline-block;
+  height: 1px;
+  width: 26px;
+  background: var(--line-2);
+}
+.eyebrow-plain::before {
+  display: none;
+}
+
+.label {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--mute);
+}
+
+.num {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: "Google Sans", ui-monospace, monospace;
+}
+
+/* the site's card: 1px hairline, 14px radius, subtle top-lit gradient */
+.panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--bg-2), transparent);
+}
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 14px 20px;
+}
+/* a title and a row of export links are both flex items, and flex items refuse
+   to shrink past min-content by default — on a phone that held the whole page
+   open. Let them shrink, and let the link row wrap. */
+.panel-head > * {
+  min-width: 0;
+}
+.panel-body {
+  min-height: 0;
+  flex: 1;
+  padding: 20px;
+}
+.panel-body.tight {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.panel-body.tight-2 {
+  display: flex;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* the "steps" pattern: a 1px grid drawn by the container's background */
+.grid-hair {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--line);
+}
+.grid-hair > * {
+  background: var(--bg);
+  transition: background 0.5s var(--ease);
+}
+.grid-hair > *:hover {
+  background: var(--bg-2);
+}
+
+/* the thin progress bar used throughout the site */
+.meter {
+  height: 6px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line);
+}
+.meter > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--fg);
+  transition: width 0.6s var(--ease);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+  transition: all 0.3s var(--ease);
+}
+.pill:hover:not(:disabled) {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+.pill:disabled {
+  cursor: not-allowed;
+  color: var(--mute);
+}
+.pill-solid {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+.pill-solid:hover:not(:disabled) {
+  background: transparent;
+  color: var(--fg);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.empty {
+  display: flex;
+  height: 100%;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  text-align: center;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--mute);
+}
+
+/* a definition row — the compare/spec pattern from the site */
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row-k {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mute);
+}
+.row-v {
+  min-width: 0;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* a KPI tile: big number, wide-tracked label, optional meter and footnote */
+.stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+}
+.stat-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 16px;
+}
+.stat-value {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.7rem, 3.2vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat-unit {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--mute);
+}
+.stat .meter {
+  margin-top: 16px;
+}
+.stat-sub {
+  margin-top: 12px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--mute);
+}
+
+.field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+/* a <select> is as wide as its longest <option> unless told otherwise, and the
+   policy lists carry some long names */
+.field select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  padding: 8px 16px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--fg);
+  outline: none;
+  transition: border-color 0.3s var(--ease);
+}
+.field select:focus {
+  border-color: var(--mute);
+}
+.field select:disabled {
+  color: var(--mute);
+}
+.field option {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* ---------------------------------------------------------------- the nav */
+
+.nav {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  border-bottom: 1px solid transparent;
+  transition: all 0.5s var(--ease);
+}
+.nav.scrolled {
+  border-bottom-color: var(--line);
+  background: rgba(var(--bg-rgb), 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.nav-inner {
+  margin: 0 auto;
+  display: flex;
+  height: 68px;
+  max-width: var(--shell);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--pad);
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.nav-dot {
+  position: relative;
+  height: 7px;
+  width: 7px;
+  border-radius: 50%;
+  background: var(--fg);
+}
+.nav-dot::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  animation: ping2 3.2s var(--ease) infinite;
+}
+.nav-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+}
+.nav-sub {
+  margin-left: 8px;
+  display: none;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--mute);
+}
+.nav-links {
+  display: none;
+  align-items: center;
+  gap: 34px;
+}
+.nav-link {
+  position: relative;
+  padding: 4px 0;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  transition: color 0.3s var(--ease);
+}
+.nav-link:hover {
+  color: var(--fg);
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  width: 0;
+  background: var(--fg);
+  transition: width 0.3s var(--ease);
+}
+.nav-link:hover::after {
+  width: 100%;
+}
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.nav-status {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+}
+.nav-toggle {
+  display: inline-flex;
+  height: 40px;
+  width: 40px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  color: var(--fg);
+  transition: all 0.3s var(--ease);
+}
+.nav-toggle:hover {
+  transform: rotate(18deg);
+  border-color: var(--mute);
+}
+
+/* ------------------------------------------------------------ page layout */
+
+.shell {
+  margin: 0 auto;
+  max-width: var(--shell);
+  padding: 96px var(--pad) 96px;
+}
+
+.section {
+  margin-top: 64px;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-title {
+  margin-top: 12px;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.section-note {
+  max-width: 46ch;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--mute);
+}
+
+.hero-title {
+  margin-top: 20px;
+  max-width: 18ch;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+.hero-lead {
+  margin-top: 20px;
+  max-width: 62ch;
+  font-size: clamp(1rem, 1.4vw, 1.15rem);
+  font-weight: 300;
+  line-height: 1.65;
+  color: var(--dim);
+}
+
+.meta-row {
+  margin-top: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 32px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+}
+.meta-row .on {
+  color: var(--fg);
+}
+
+.footer {
+  margin-top: 80px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  line-height: 1.8;
+  color: var(--mute);
+}
+
+/* grids — one column by default, widening at the breakpoints the design used */
+.grid,
+.grid-map,
+.grid-charts,
+.grid-links,
+.grid-decision,
+.grid-scenario {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap);
+}
+/* A grid item defaults to min-width:auto, so a wide child — the measured chart
+   SVG, a link table — holds its column open instead of letting it shrink. That
+   also freezes the chart's ResizeObserver: the container can never report a
+   narrower box, so the SVG never redraws smaller and the page scrolls sideways
+   forever. min-width:0 lets the column shrink and the observer do its job. */
+.grid > *,
+.grid-map > *,
+.grid-charts > *,
+.grid-links > *,
+.grid-decision > *,
+.grid-scenario > * {
+  min-width: 0;
+}
+.mt-6 {
+  margin-top: var(--gap);
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.grid-health {
+  grid-template-columns: 1fr;
+}
+.grid-config {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.map-frame {
+  height: 520px;
+}
+
+/* ---------------------------------------------------------- run playback */
+
+.timeline {
+  margin-top: var(--gap);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: linear-gradient(180deg, var(--bg-2), transparent);
+}
+.timeline-live {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+  transition: all 0.3s var(--ease);
+}
+.timeline-live:hover {
+  border-color: var(--mute);
+  color: var(--fg);
+}
+.timeline-live.on {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+.timeline-readout {
+  flex-shrink: 0;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mute);
+}
+.timeline-readout .on {
+  color: var(--fg);
+}
+
+/* the scrubber — restyled from scratch because the native track/thumb carry
+   the OS accent colour, which would be the only unbranded hue on the page */
+.timeline-range {
+  flex: 1 1 220px;
+  min-width: 0;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.timeline-range:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.timeline-range::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.timeline-range::-moz-range-track {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.timeline-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5px;
+  height: 12px;
+  width: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--fg);
+  transition: transform 0.2s var(--ease);
+}
+.timeline-range::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--fg);
+}
+.timeline-range:hover::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+.timeline-range:focus-visible {
+  outline: none;
+}
+.timeline-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(var(--viz-rgb), 0.18);
+}
+
+/* ------------------------------------------------------------- the charts */
+
+.chart {
+  height: 190px;
+  width: 100%;
+  position: relative;
+}
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+.chart-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.chart-tick {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  fill: var(--mute);
+}
+.chart-cursor {
+  stroke: var(--line-2);
+  stroke-width: 1;
+}
+.chart-tip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  padding: 8px 12px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.chart-tip-t {
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+}
+.chart-tip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.chart-tip-row b {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+/* ---------------------------------------------------------------- the map */
+
+.map {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-2);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.map.dragging {
+  cursor: grabbing;
+}
+.map svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.grat {
+  fill: none;
+  stroke: rgba(var(--viz-rgb), 0.1);
+}
+.grat-major {
+  stroke-width: 1.1;
+}
+.grat-minor {
+  stroke-width: 0.5;
+}
+/* a served link — the station is actually carrying this satellite */
+.beam {
+  fill: none;
+  stroke: rgba(var(--viz-rgb), 0.55);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+}
+/* a visible-but-unserved pair: the capacity the scheduler declined to use */
+.beam.offered {
+  stroke: rgba(var(--viz-rgb), 0.14);
+  stroke-width: 0.8;
+  stroke-dasharray: 1 4;
+}
+
+.marker {
+  position: absolute;
+  z-index: 2;
+}
+.marker-inner {
+  position: relative;
+  transform: translate(-50%, -50%);
+}
+.marker-tip {
+  pointer-events: none;
+  position: absolute;
+  z-index: 10;
+  display: none;
+  width: max-content;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  padding: 6px 10px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--dim);
+}
+.marker-inner:hover .marker-tip {
+  display: block;
+}
+.marker-tip .on {
+  color: var(--fg);
+}
+
+/* satellites: 7px diamonds, filled while transmitting */
+.sat {
+  height: 7px;
+  width: 7px;
+  transform: rotate(45deg);
+  border: 1px solid var(--mute);
+  background: transparent;
+  transition: all 0.3s var(--ease);
+}
+.sat.on {
+  border-color: transparent;
+  background: var(--fg);
+}
+.sat.done {
+  border-color: var(--line-2);
+}
+.sat.slewing {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+/* only reachable in "all" mode: out of range of every station */
+.sat.faded {
+  opacity: 0.32;
+}
+.sat-tip {
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+/* ground stations: rings, filled while committed, pinging while transmitting */
+.gs {
+  position: relative;
+  display: flex;
+  height: 12px;
+  width: 12px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid;
+  border-radius: 50%;
+}
+.gs-ping {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid;
+  animation: ping2 3.2s var(--ease) infinite;
+}
+.gs-name {
+  pointer-events: none;
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mute);
+}
+.gs-name.focused {
+  color: var(--fg);
+}
+.gs-tip {
+  bottom: 16px;
+  left: 0;
+}
+
+.map-hud {
+  pointer-events: none;
+  position: absolute;
+  bottom: 16px;
+  left: 20px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mute);
+}
+.map-hud .on {
+  color: var(--fg);
+}
+.map-tag {
+  pointer-events: none;
+  position: absolute;
+  right: 20px;
+  top: 16px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--mute);
+}
+.map-corner {
+  pointer-events: none;
+  position: absolute;
+  height: 14px;
+  width: 14px;
+}
+.map-corner.tl {
+  left: 14px;
+  top: 14px;
+  border-left: 1px solid var(--line-2);
+  border-top: 1px solid var(--line-2);
+}
+.map-corner.tr {
+  right: 14px;
+  top: 14px;
+  border-right: 1px solid var(--line-2);
+  border-top: 1px solid var(--line-2);
+}
+.map-corner.bl {
+  left: 14px;
+  bottom: 14px;
+  border-left: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+}
+.map-corner.br {
+  right: 14px;
+  bottom: 14px;
+  border-right: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+}
+
+/* satellite filter: in-view only (default) vs the whole constellation */
+.map-filter {
+  position: absolute;
+  left: 14px;
+  bottom: 40px;
+  z-index: 3;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+}
+.map-filter button {
+  padding: 5px 12px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+  transition: all 0.3s var(--ease);
+}
+.map-filter button:hover {
+  color: var(--dim);
+}
+.map-filter button.on {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+/* zoom control — the shape MapLibre's NavigationControl used to occupy */
+.map-zoom {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-2);
+}
+.map-zoom button {
+  display: flex;
+  height: 27px;
+  width: 27px;
+  align-items: center;
+  justify-content: center;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--dim);
+  transition: color 0.2s var(--ease);
+}
+.map-zoom button:hover {
+  color: var(--fg);
+}
+.map-zoom button + button {
+  border-top: 1px solid var(--line);
+}
+
+/* --------------------------------------------------------- resource panel */
+
+.gs-row {
+  border-bottom: 1px solid var(--line);
+  padding: 14px 0;
+  transition: background 0.3s var(--ease);
+}
+.gs-row:last-child {
+  border-bottom: none;
+}
+.gs-row.focused {
+  background: var(--bg-2);
+}
+.gs-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gs-row-id {
+  font-size: 14px;
+  font-weight: 500;
+}
+.gs-row-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+}
+.gs-row-grid .label {
+  display: block;
+  margin-bottom: 6px;
+}
+.gs-row-val {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.gs-row-val .muted {
+  margin-left: 6px;
+  color: var(--mute);
+}
+.gs-row-sub {
+  margin-top: 5px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mute);
+}
+.gs-serving {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.chip-sm {
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--dim);
+}
+.gs-row-foot {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mute);
+}
+.gs-row-foot .reason {
+  color: var(--dim);
+}
+
+/* ------------------------------------------------------------- link table */
+
+/* The rows are taller now (a quality meter plus the I/N line), and the panel is
+   stretched to its grid row by the network table beside it. Fill that height
+   instead of clipping at a fixed 340px and leaving dead space underneath. */
+.link-wrap {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+.link-scroll {
+  margin: 0 -4px;
+  flex: 1 1 auto;
+  min-height: 180px;
+  max-height: 620px;
+  overflow-y: auto;
+  overflow-x: auto; /* seven columns do not fit a phone; scroll the table, not the page */
+}
+.link-table {
+  min-width: 460px;
+}
+.link-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding: 0 4px 8px;
+  text-align: left;
+  font-weight: 400;
+}
+.link-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 4px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.link-table tr:last-child td {
+  border-bottom: none;
+}
+/* visible but not being served */
+.link-table tr.dim {
+  color: var(--mute);
+}
+/* the pass is over — last-known values, held rather than dropped */
+.link-table tr.gone {
+  color: var(--mute);
+  opacity: 0.55;
+}
+.link-summary {
+  padding: 4px 4px 10px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+}
+.link-summary .on {
+  color: var(--fg);
+}
+.link-state {
+  margin-left: 2px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+}
+.link-q {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+.link-q .meter {
+  width: 56px;
+  flex-shrink: 0;
+}
+.link-q-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.link-table td .muted {
+  color: var(--mute);
+}
+.link-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.link-dot {
+  height: 6px;
+  width: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--fg);
+}
+.link-dot.off {
+  background: transparent;
+  border: 1px solid var(--line-2);
+}
+.link-arrow {
+  color: var(--mute);
+}
+.link-flag {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+}
+.link-inr {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  color: var(--mute);
+}
+
+/* ------------------------------------------------------------- event feed */
+
+.event-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.event {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+}
+.event:last-child {
+  border-bottom: none;
+}
+.event-t {
+  width: 56px;
+  flex-shrink: 0;
+  color: var(--mute);
+}
+.event-kind {
+  width: 128px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.event-who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mute);
+}
+
+/* ---------------------------------------------------------- decision pane */
+
+.stack-5 > * + * {
+  margin-top: 20px;
+}
+.config-cell {
+  padding: 16px;
+}
+.config-cell .num {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--dim);
+}
+.chip .muted {
+  color: var(--mute);
+}
+
+.explain {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+.explain p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--mute);
+}
+.explain p.live {
+  color: var(--dim);
+}
+.explain .expected {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--mute);
+}
+
+.ind {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.ind:last-child {
+  border-bottom: none;
+}
+.ind-btn {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+.ind-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+.ind-tag {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+}
+.ind-score {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.ind .meter {
+  margin-top: 8px;
+}
+/* the grid-rows 0fr -> 1fr disclosure, which animates height without a fixed px */
+.ind-more {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.5s var(--ease), opacity 0.5s var(--ease);
+}
+.ind-more.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.ind-more > div {
+  overflow: hidden;
+}
+.factors {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--mute);
+}
+.factors .v {
+  color: var(--dim);
+}
+.ind-note {
+  margin-top: 6px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--mute);
+}
+.health-notes {
+  margin-top: 16px;
+}
+.health-notes p {
+  margin-top: 8px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--mute);
+}
+
+/* -------------------------------------------------------- scenario picker */
+
+.preset-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--line);
+}
+.preset {
+  display: block;
+  width: 100%;
+  background: var(--bg);
+  padding: 12px 16px;
+  text-align: left;
+  transition: background 0.3s var(--ease);
+}
+.preset:hover,
+.preset.on {
+  background: var(--bg-2);
+}
+.preset-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.preset-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.preset-size {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mute);
+}
+.preset-desc {
+  margin-top: 4px;
+  max-width: 52ch;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--mute);
+}
+.preset-badges {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.run-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.switch {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  gap: 10px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--mute);
+}
+.switch-track {
+  position: relative;
+  height: 18px;
+  width: 32px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  transition: all 0.3s var(--ease);
+}
+.switch-track.on {
+  border-color: var(--fg);
+  background: var(--fg);
+}
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: var(--mute);
+  transition: all 0.3s var(--ease);
+}
+.switch-track.on .switch-knob {
+  left: 17px;
+  background: var(--bg);
+}
+
+.note {
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--mute);
+}
+.note.err {
+  color: var(--st-crit);
+}
+
+.export-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.export-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mute);
+  transition: color 0.3s var(--ease);
+}
+.export-link:hover {
+  color: var(--fg);
+}
+
+/* ----------------------------------------------------------- breakpoints */
+
+@media (min-width: 640px) {
+  .grid-health {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .gs-row-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .controls {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .nav-sub {
+    display: inline;
+  }
+}
+
+@media (min-width: 768px) {
+  .nav-status {
+    display: flex;
+  }
+}
+
+@media (min-width: 1024px) {
+  .nav-links {
+    display: flex;
+  }
+  .grid-map {
+    grid-template-columns: 1.55fr 1fr;
+  }
+  .grid-links {
+    grid-template-columns: 1.4fr 1fr;
+  }
+  .grid-decision {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid-scenario {
+    grid-template-columns: 1.2fr 1fr;
+  }
+  .grid-config {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .grid-health {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .grid-charts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------- analytical contact forecast */
+
+.fc-group + .fc-group {
+  margin-top: 14px;
+}
+.fc-group > .label {
+  display: block;
+  margin-bottom: 6px;
+}
+.fc-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 11px;
+}
+.fc-row:last-child {
+  border-bottom: none;
+}
+.fc-id {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.fc-mid {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mute);
+}
+.fc-t {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+  white-space: nowrap;
+}
+/* a pass about to end is the one actionable item on this panel */
+.fc-t.los-soon,
+.link-table td.los-soon {
+  color: var(--st-warn);
+}
+.fc-note {
+  margin-top: 12px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--mute);
+}
+.tip-fc {
+  margin-top: 2px;
+  color: var(--mute);
+}
