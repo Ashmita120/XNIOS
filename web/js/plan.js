@@ -1,200 +1,351 @@
 /**
- * The planning console: a communication request in, a plan out.
+ * PLAN — the only view that asks the network for something.
  *
- * This is the only panel in the console that *asks the network for something*
- * rather than reading what it did. The form carries mission-level fields only —
- * satellite, volume, when it is needed, who is asking. Station, beam geometry,
- * frequency and exact timing are answers, so none of them appear as inputs.
+ * Four sections, in the order an operator works: state the job, read the plan,
+ * queue it against competing jobs, see what the network has promised.
  *
- * Quote and accept are deliberately two actions. A quote is free and books
- * nothing; accept is what consumes capacity and charges the account's quota, so
- * an operator can price a job before committing to it, and two operators racing
- * for the same pass both see the ledger.
+ *   01 Request   mission-level fields only, plus the account context they imply
+ *   02 Plan      verdict first, then the three numbers, then the justification
+ *   03 Queue     multi-request arbitration — where a tier finally decides something
+ *   04 Ledger    committed capacity, and how to give it back
+ *
+ * Styling lives in `web/plan.css`, scoped to `.xn-plan` because the rest of the
+ * console has not been ported to this palette yet.
+ *
+ * Quote and accept stay separate throughout, including for a batch: `commit`
+ * defaults to false so policies can be compared without consuming capacity.
  */
 
 import { html } from "htm/preact";
 import { useEffect, useState } from "preact/hooks";
 import { api } from "./api.js";
 import { clock } from "./format.js";
-import { Badge, Button, Empty, Panel, Row, Select } from "./ui.js";
 
-const INTENTS = ["asap", "by_deadline", "flexible"];
+const INTENTS = [
+  ["asap", "ASAP"],
+  ["by_deadline", "Deadline"],
+  ["flexible", "Flexible"],
+];
 const PRIORITIES = ["", "low", "normal", "high", "critical"];
+const TONE = { TRANSMIT_NOW: "", SCHEDULE: "", PARTIAL: "warn", REJECT: "crit" };
+const TIER_CLASS = { emergency: "hi", military: "mid", commercial: "", research: "" };
 
-const TONE = {
-  TRANSMIT_NOW: "ok",
-  SCHEDULE: "ok",
-  PARTIAL: "warn",
-  REJECT: "crit",
-};
+const g1 = (v) => (v === null || v === undefined ? "—" : v.toFixed(1));
 
-/** A labelled free-text/number input, matching `Select`'s markup. */
-function Field({ label, value, onChange, type = "text", placeholder, disabled }) {
-  return html`
-    <label class="field">
-      <span class="label">${label}</span>
-      <input
-        type=${type}
-        value=${value}
-        placeholder=${placeholder}
-        disabled=${disabled}
-        onInput=${(e) => onChange(e.currentTarget.value)}
-      />
-    </label>
-  `;
-}
+// ---------------------------------------------------------------- primitives
+const Head = ({ idx, title, note }) => html`
+  <div class="xhead">
+    <span class="xidx">${idx}</span>
+    <span class="xtitle">${title}</span>
+    ${note && html`<span class="xnote">${note}</span>`}
+  </div>
+`;
 
-/** Admission read as a checklist, so a refusal says which gate closed. */
+const Panel = ({ cap, n, children, bare }) => html`
+  <div class="xpanel">
+    ${cap && html`<div class=${bare ? "xcap bare" : "xcap"}>
+      <span>${cap}</span>${n && html`<span class="n">${n}</span>`}
+    </div>`}
+    ${children}
+  </div>
+`;
+
+const Row = ({ k, v, u, tone }) => html`
+  <div class="xrow">
+    <span class="k">${k}</span>
+    <span class=${tone ? `v ${tone}` : "v"}>${v}${u && html`<span class="u">${u}</span>`}</span>
+  </div>
+`;
+
+const Field = ({ label, children }) => html`
+  <label class="xfield"><span>${label}</span>${children}</label>
+`;
+
+/** Segmented meter — the quantity behind it is counted, so it gets ticks. */
+const Meter = ({ filled, total = 8 }) => html`
+  <div class="xmeter">
+    ${Array.from({ length: total }, (_, i) =>
+      html`<i key=${i} class=${i < filled ? "on" : ""}></i>`)}
+  </div>
+`;
+
+const Hero = ({ label, value, unit, on, filled }) => html`
+  <div class=${on ? "xhero on" : "xhero"}>
+    <div class="l">${label}</div>
+    <div class="n">${value}${unit && html`<em>${unit}</em>`}</div>
+    <${Meter} filled=${filled} />
+  </div>
+`;
+
+// ------------------------------------------------------------------ 02 plan
 function Admission({ plan }) {
-  if (!plan) return null;
-  const q = plan.quota_remaining_gbit;
+  const metered = plan.quota_remaining_gbit !== null && plan.quota_remaining_gbit !== undefined;
   const checks = [
     ["contact available", plan.schedule.length > 0],
-    ["capacity reserved", plan.scheduled_gbit >= plan.data_volume_gbit - 1e-6],
-    [
-      "deadline satisfied",
-      plan.meets_deadline === null || plan.meets_deadline === undefined
-        ? null
-        : plan.meets_deadline,
-    ],
-    ["no satellite conflict", true],
-    ["quota available", q === null ? null : !plan.quota_limited],
+    ["capacity reserved", plan.shortfall_gbit <= 1e-6],
+    ["deadline satisfied", plan.meets_deadline === null || plan.meets_deadline === undefined
+      ? null : plan.meets_deadline],
+    ["no satellite conflict", plan.schedule.length > 0 ? true : null],
+    ["quota available", metered ? !plan.quota_limited : null],
   ];
-  return html`
-    <div class="checklist">
-      ${checks.map(
-        ([label, ok]) => html`
-          <div key=${label} class="check">
-            <span
-              class="check-mark"
-              style=${{
-                color:
-                  ok === null ? "var(--mute)" : ok ? "var(--st-ok)" : "var(--st-crit)",
-              }}
-              >${ok === null ? "–" : ok ? "✓" : "✕"}</span
-            >
-            <span>${label}${ok === null ? " (n/a)" : ""}</span>
-          </div>
-        `,
-      )}
-    </div>
-  `;
+  return html`<div>
+    ${checks.map(([label, ok]) => html`
+      <div class="xchk" key=${label}>
+        <span class=${`m ${ok === null ? "na" : ok ? "ok" : "bad"}`}>
+          ${ok === null ? "–" : ok ? "✓" : "✕"}
+        </span>
+        <span>${label}${ok === null ? html` <span class="muted">(n/a)</span>` : ""}</span>
+      </div>`)}
+  </div>`;
 }
 
-function PlanCard({ plan, onAccept, onRelease, busy, booked }) {
+function PlanPanel({ plan, booked, busy, onAccept, onRelease }) {
   if (!plan) {
-    return html`<${Empty}>submit a request to see a plan<//>`;
+    return html`<${Panel} cap="Communication plan">
+      <div class="xempty">submit a request to see a plan</div>
+    <//>`;
   }
   const w = plan.recommendation;
   const b = plan.beam_requirement;
   const n = plan.next_opportunity;
+  const frac = plan.data_volume_gbit > 0
+    ? Math.min(1, plan.scheduled_gbit / plan.data_volume_gbit) : 0;
 
   return html`
-    <div class="stack-5">
-      <div class="plan-head">
-        <${Badge} tone=${TONE[plan.decision] || "neutral"}>${plan.decision}<//>
-        <span class="label">${plan.request_id} · ${plan.reason_code}</span>
+    <div class="xpanel">
+      <div class=${`xverdict ${TONE[plan.decision] || ""}`}>
+        <span class="tag">${plan.decision.replace(/_/g, " ")}</span>
+        <span class="meta">
+          <b>${plan.reason_code}</b>
+          ${plan.request_id} · ${booked ? "booked" : "quoted, not booked"}
+        </span>
       </div>
 
-      <div>
-        <${Row} k="Satellite" v=${plan.satellite_id} />
-        ${plan.customer_id &&
-        html`<${Row} k="Customer" v=${`${plan.customer_id}${plan.tier ? ` (${plan.tier})` : ""}`} />`}
-        <${Row}
-          k="Requested"
-          v=${`${plan.data_volume_gbit.toFixed(1)} Gbit`}
-        />
-        <${Row}
-          k="Scheduled"
-          v=${`${plan.scheduled_gbit.toFixed(1)} Gbit`}
-          accent=${plan.shortfall_gbit > 1e-6 ? "var(--st-warn)" : undefined}
-        />
-        ${plan.shortfall_gbit > 1e-6 &&
-        html`<${Row}
-          k="Shortfall"
-          v=${`${plan.shortfall_gbit.toFixed(1)} Gbit`}
-          accent="var(--st-warn)"
-        />`}
-        ${plan.quota_remaining_gbit !== null &&
-        plan.quota_remaining_gbit !== undefined &&
-        html`<${Row} k="Quota left" v=${`${plan.quota_remaining_gbit.toFixed(1)} Gbit`} />`}
+      <div class="xheros">
+        <${Hero} label="Deliverable" value=${g1(plan.scheduled_gbit)} unit="Gbit"
+                 on=${plan.shortfall_gbit <= 1e-6} filled=${Math.round(frac * 8)} />
+        <${Hero} label="Completes"
+                 value=${plan.completes_at_s === null ? "—" : clock(plan.completes_at_s)}
+                 filled=${plan.completes_at_s === null ? 0 : 3} />
+        <${Hero} label="Scan angle" value=${b ? b.scan_angle_deg.toFixed(1) : "—"} unit="°"
+                 filled=${b ? Math.max(1, Math.round((b.scan_angle_deg / 90) * 8)) : 0} />
       </div>
 
-      ${w &&
-      html`<div>
-        <div class="label" style=${{ marginTop: "4px" }}>Recommendation</div>
-        <${Row} k="Station" v=${w.station} />
-        <${Row} k="Start" v=${`T+${clock(w.t_start)}`} />
-        <${Row} k="Window" v=${`${w.duration_s.toFixed(0)} s`} />
-        <${Row} k="Contacts" v=${plan.schedule.length} />
-        ${plan.completes_at_s !== null &&
-        html`<${Row} k="Completes" v=${`T+${clock(plan.completes_at_s)}`} />`}
+      ${w && html`<div class="xhalf">
+        <div>
+          <${Row} k="Station" v=${w.station} tone="accent" />
+          <${Row} k="Start" v=${`T+${clock(w.t_start)}`} />
+          <${Row} k="Window" v=${w.duration_s.toFixed(0)} u="s" />
+          <${Row} k="Contacts" v=${plan.schedule.length} />
+          <${Row} k="Requested" v=${g1(plan.data_volume_gbit)} u="Gbit" />
+          <${Row} k="Shortfall" v=${g1(plan.shortfall_gbit)} u="Gbit"
+                  tone=${plan.shortfall_gbit > 1e-6 ? "warn" : ""} />
+        </div>
+        <div>
+          ${b && html`
+            <${Row} k="Beams" v=${b.count} />
+            <${Row} k="Pointing" v=${`az ${b.az_deg.toFixed(1)} / el ${b.elev_deg.toFixed(1)}`} u="°" />
+            <${Row} k="Beamwidth" v=${b.beamwidth_deg.toFixed(2)} u="°" />
+            <${Row} k="Envelope" v=${b.within_scan_envelope ? "within limit" : "EXCEEDED"}
+                    tone=${b.within_scan_envelope ? "accent" : "crit"} />`}
+          <${Row} k="Band" v=${plan.frequency.band || "—"} />
+          <${Row} k="Channel" v=${html`<span class="muted">at execution</span>`} />
+        </div>
       </div>`}
 
-      ${b &&
-      html`<div>
-        <div class="label" style=${{ marginTop: "4px" }}>Beam requirement</div>
-        <${Row} k="Beams" v=${b.count} />
-        <${Row}
-          k="Pointing"
-          v=${`az ${b.az_deg.toFixed(1)}° · el ${b.elev_deg.toFixed(1)}°`}
-        />
-        <${Row}
-          k="Scan angle"
-          v=${`${b.scan_angle_deg.toFixed(1)}°`}
-          accent=${b.within_scan_envelope ? undefined : "var(--st-crit)"}
-        />
-        <${Row} k="Beamwidth" v=${`${b.beamwidth_deg.toFixed(2)}°`} />
-        <${Row} k="Frequency" v=${`${plan.frequency.band} · ${plan.frequency.channel}`} />
-      </div>`}
-
-      ${n &&
-      html`<div>
-        <div class="label" style=${{ marginTop: "4px" }}>Next opportunity</div>
-        <${Row} k="Station" v=${n.station} />
-        <${Row} k="In" v=${clock(n.in_s)} />
-        <${Row} k="Capacity" v=${`${n.deliverable_gbit.toFixed(1)} Gbit`} />
-      </div>`}
-
-      <div>
-        <div class="label">Admission</div>
-        <${Admission} plan=${plan} />
+      <div class="xhalf" style=${{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--p-line)" }}>
+        <div>
+          <div class="xcap bare">Admission</div>
+          <${Admission} plan=${plan} />
+        </div>
+        <div>
+          <div class="xcap bare">Next opportunity</div>
+          ${n
+            ? html`<div>
+                <${Row} k="Station" v=${n.station} />
+                <${Row} k="In" v=${clock(n.in_s)} />
+                <${Row} k="Capacity" v=${g1(n.deliverable_gbit)} u="Gbit" />
+              </div>`
+            : html`<div class="xempty">none in horizon</div>`}
+        </div>
       </div>
 
-      ${plan.explanation.length > 0 &&
-      html`<div>
-        <div class="label">Why</div>
-        <ul class="why">
-          ${plan.explanation.map((e, i) => html`<li key=${i}>${e}</li>`)}
-        </ul>
-      </div>`}
+      ${plan.explanation.length > 0 && html`
+        <ul class="xwhy">${plan.explanation.map((e, i) => html`<li key=${i}>${e}</li>`)}</ul>`}
 
-      <div class="btn-row">
-        <${Button}
-          solid
-          disabled=${busy || booked || !plan.admitted}
-          onClick=${onAccept}
-        >
+      <div class="xbtnrow">
+        <button class="xbtn" disabled=${busy || booked || !plan.admitted} onClick=${onAccept}>
           ${booked ? "Booked" : "Accept plan"}
-        <//>
-        <${Button} disabled=${busy || !booked} onClick=${onRelease}>Release<//>
+        </button>
+        <button class="xbtn ghost" disabled=${busy || !booked} onClick=${onRelease}>Release</button>
       </div>
     </div>
   `;
 }
 
+// ----------------------------------------------------------------- 03 queue
+function QueuePanel({ queue, onRemove, onClear }) {
+  const [cmp, setCmp] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function compare(commit) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const body = (policy) => ({ requests: queue, policy, commit, allow_partial: true });
+      if (commit) {
+        const r = await api.plan.batch(body("oppcost"));
+        setCmp({ oppcost: r, fcfs: cmp && cmp.fcfs, committed: true });
+      } else {
+        const [f, o] = await Promise.all([
+          api.plan.batch(body("fcfs")),
+          api.plan.batch(body("oppcost")),
+        ]);
+        setCmp({ fcfs: f, oppcost: o, committed: false });
+      }
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const fs = cmp && cmp.fcfs && cmp.fcfs.summary;
+  const os = cmp && cmp.oppcost && cmp.oppcost.summary;
+
+  return html`
+    <${Panel} cap="Competing requests" n=${`${queue.length} queued`}>
+      ${queue.length === 0
+        ? html`<div class="xempty">
+            add requests from the form above, then compare how the two policies allocate them
+          </div>`
+        : html`<div class="xscroll">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Satellite</th><th>Customer</th>
+                <th class="num">Volume</th><th class="num">Deadline</th><th></th>
+              </tr></thead>
+              <tbody>
+                ${queue.map((r, i) => html`<tr key=${r.request_id}>
+                  <td class="muted">${String(i + 1).padStart(2, "0")}</td>
+                  <td>${r.satellite_id}</td>
+                  <td>${r.customer_id || html`<span class="muted">—</span>`}</td>
+                  <td class="num">${r.data_volume_gbit.toFixed(1)}</td>
+                  <td class="num">${r.deadline_s ? `T+${clock(r.deadline_s)}` : "—"}</td>
+                  <td class="num">
+                    <button class="xdel" title="remove" onClick=${() => onRemove(r.request_id)}>×</button>
+                  </td>
+                </tr>`)}
+              </tbody>
+            </table>
+          </div>`}
+
+      <div class="xbtnrow">
+        <button class="xbtn" disabled=${busy || !queue.length} onClick=${() => compare(false)}>
+          Compare policies
+        </button>
+        <button class="xbtn ghost" disabled=${busy || !cmp || cmp.committed} onClick=${() => compare(true)}>
+          Commit oppcost
+        </button>
+        <button class="xbtn ghost" disabled=${busy || !queue.length} onClick=${onClear}>Clear</button>
+      </div>
+      ${err && html`<div class="xerr">${err}</div>`}
+
+      ${fs && os && html`<div style=${{ marginTop: "16px" }}>
+        <div class="xcmp">
+          <div>
+            <div class="l">fcfs — submission order</div>
+            <div class="n">${(fs.weighted_completion * 100).toFixed(1)}<em>%</em></div>
+            <div class="d">
+              weighted completion · ${fs.fully_met} of ${fs.requests} met ·
+              ${g1(fs.scheduled_gbit)} Gbit
+            </div>
+          </div>
+          <div class=${os.weighted_completion >= fs.weighted_completion ? "win" : ""}>
+            <div class="l">oppcost — opportunity cost</div>
+            <div class="n">${(os.weighted_completion * 100).toFixed(1)}<em>%</em></div>
+            <div class="d">
+              weighted completion · ${os.fully_met} of ${os.requests} met ·
+              ${g1(os.scheduled_gbit)} Gbit
+            </div>
+          </div>
+        </div>
+        <div class="xscroll" style=${{ marginTop: "16px" }}>
+          <table>
+            <thead><tr>
+              <th>#</th><th>Request</th><th>Tier</th><th>Satellite</th>
+              <th class="num">Volume</th><th class="num">Scheduled</th><th>Outcome</th>
+            </tr></thead>
+            <tbody>
+              ${cmp.oppcost.plans.map((p, i) => {
+                const met = p.shortfall_gbit <= 1e-6 && p.schedule.length > 0;
+                const partial = p.schedule.length > 0 && !met;
+                return html`<tr key=${p.request_id}>
+                  <td class="muted">${String(i + 1).padStart(2, "0")}</td>
+                  <td>${p.request_id}</td>
+                  <td><span class=${`xbadge ${TIER_CLASS[p.tier] || ""}`}>${p.tier || "—"}</span></td>
+                  <td>${p.satellite_id}</td>
+                  <td class="num">${g1(p.data_volume_gbit)}</td>
+                  <td class="num">${g1(p.scheduled_gbit)}</td>
+                  <td><span class=${`xbadge ${met ? "hi" : partial ? "mid" : "lo"}`}>
+                    ${met ? "met" : partial ? "partial" : "rejected"}
+                  </span></td>
+                </tr>`;
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div class="xnote" style=${{ marginTop: "12px", marginLeft: 0 }}>
+          booked order · ${cmp.oppcost.booked_order.join(" → ")}
+        </div>
+      </div>`}
+    <//>
+  `;
+}
+
+// ---------------------------------------------------------------- 04 ledger
+const LedgerPanel = ({ ledger }) => html`
+  <${Panel} cap="Bookings"
+            n=${ledger && ledger.commitments.length
+              ? `${ledger.total_gbit.toFixed(1)} GBIT TOTAL` : ""}>
+    ${!ledger || !ledger.commitments.length
+      ? html`<div class="xempty">nothing booked</div>`
+      : html`<div class="xscroll">
+          <table>
+            <thead><tr>
+              <th>Request</th><th>Satellite</th><th>Station</th>
+              <th class="num">Start</th><th class="num">End</th><th class="num">Gbit</th>
+            </tr></thead>
+            <tbody>
+              ${ledger.commitments.map((c, i) => html`<tr key=${i}>
+                <td>${c.request_id}</td>
+                <td>${c.satellite_id}</td>
+                <td>${c.station}</td>
+                <td class="num">T+${clock(c.t_start)}</td>
+                <td class="num">T+${clock(c.t_end)}</td>
+                <td class="num">${c.gbit.toFixed(2)}</td>
+              </tr>`)}
+            </tbody>
+          </table>
+        </div>`}
+  <//>
+`;
+
+// ======================================================================= view
 export function PlanningConsole() {
   const [net, setNet] = useState(null);
+  const [customers, setCustomers] = useState([]);
   const [sat, setSat] = useState("");
   const [volume, setVolume] = useState("18.4");
   const [intent, setIntent] = useState("asap");
   const [deadline, setDeadline] = useState("3600");
   const [priority, setPriority] = useState("");
   const [customer, setCustomer] = useState("");
-  const [customers, setCustomers] = useState([]);
   const [plan, setPlan] = useState(null);
   const [booked, setBooked] = useState(false);
   const [ledger, setLedger] = useState(null);
+  const [queue, setQueue] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -209,167 +360,142 @@ export function PlanningConsole() {
       .catch((e) => setErr(String(e)));
   }, []);
 
-  async function refreshLedger() {
-    try {
-      setLedger(await api.plan.ledger());
-    } catch {
-      /* the ledger is a read-only view; a stale one is not worth an error */
-    }
+  const account = customers.find((c) => c.customer_id === customer);
+
+  function body() {
+    const b = { satellite_id: sat, data_volume_gbit: Number(volume), timing: intent, t_now: 0 };
+    if (intent === "by_deadline") b.deadline_s = Number(deadline);
+    if (priority) b.priority = priority;
+    if (customer) b.customer_id = customer;
+    return b;
   }
 
+  const refreshLedger = () =>
+    api.plan.ledger().then(setLedger).catch(() => undefined);
+
   async function quote() {
-    setBusy(true);
-    setErr(null);
-    setBooked(false);
-    try {
-      const body = {
-        satellite_id: sat,
-        data_volume_gbit: Number(volume),
-        timing: intent,
-        t_now: 0,
-      };
-      if (intent === "by_deadline") body.deadline_s = Number(deadline);
-      if (priority) body.priority = priority;
-      if (customer) body.customer_id = customer;
-      setPlan(await api.plan.quote(body));
-    } catch (e) {
-      setErr(String(e));
-      setPlan(null);
-    } finally {
-      setBusy(false);
-    }
+    setBusy(true); setErr(null); setBooked(false);
+    try { setPlan(await api.plan.quote(body())); }
+    catch (e) { setErr(String(e)); setPlan(null); }
+    finally { setBusy(false); }
   }
 
   async function accept() {
-    setBusy(true);
-    setErr(null);
-    try {
-      await api.plan.accept(plan.request_id);
-      setBooked(true);
-      await refreshLedger();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
+    setBusy(true); setErr(null);
+    try { await api.plan.accept(plan.request_id); setBooked(true); await refreshLedger(); }
+    catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
   }
 
   async function release() {
     setBusy(true);
-    try {
-      await api.plan.release(plan.request_id);
-      setBooked(false);
-      await refreshLedger();
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
+    try { await api.plan.release(plan.request_id); setBooked(false); await refreshLedger(); }
+    catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  function enqueue() {
+    const b = body();
+    b.request_id = `Q-${String(queue.length + 1).padStart(2, "0")}`;
+    if (intent !== "by_deadline") b.deadline_s = Number(deadline);   // batch needs a bound
+    b.timing = "by_deadline";
+    setQueue((q) => [...q, b]);
   }
 
   if (err && !net) {
-    return html`<${Empty}>
-      Planning API unreachable — start it with
-      <span style=${{ marginLeft: "4px", color: "var(--dim)" }}>python run_api.py</span>
-    <//>`;
+    return html`<div class="xn-plan">
+      <div class="xempty">
+        Planning API unreachable — start it with
+        <span style=${{ color: "var(--p-mid)" }}> python run_api.py</span>
+      </div>
+    </div>`;
   }
-  if (!net) return html`<${Empty}>loading network<//>`;
+  if (!net) return html`<div class="xn-plan"><div class="xempty">loading network</div></div>`;
 
   return html`
-    <div class="grid-decision">
-      <${Panel} title="Communication request">
-        <div class="stack-5">
-          <${Select} label="Satellite" value=${sat} options=${net.satellites} onChange=${setSat} />
-          <${Field}
-            label="Data volume (Gbit)"
-            type="number"
-            value=${volume}
-            onChange=${setVolume}
-          />
-          <${Select} label="Timing" value=${intent} options=${INTENTS} onChange=${setIntent} />
-          ${intent === "by_deadline" &&
-          html`<${Field}
-            label="Deadline (s from now)"
-            type="number"
-            value=${deadline}
-            onChange=${setDeadline}
-          />`}
-          <${Select}
-            label="Priority (blank = from account)"
-            value=${priority}
-            options=${PRIORITIES}
-            onChange=${setPriority}
-          />
-          <${Select}
-            label="Customer"
-            value=${customer}
-            options=${["", ...customers.map((c) => c.customer_id)]}
-            onChange=${setCustomer}
-          />
-
-          <div class="btn-row">
-            <${Button} solid disabled=${busy || !sat} onClick=${quote}>Get plan<//>
-          </div>
-
-          ${err && html`<div class="err">${err}</div>`}
-
-          <div class="meta-row" style=${{ marginTop: "4px" }}>
-            <span>${net.preset}</span>
-            <span>${net.satellites.length} sats · ${net.stations.length} stations</span>
-            <span>${net.contacts_precomputed} contacts</span>
-            <span>${net.horizon_s / 3600}h horizon</span>
-          </div>
-        </div>
-      <//>
-
-      <${Panel} title="Communication plan">
-        <${PlanCard}
-          plan=${plan}
-          busy=${busy}
-          booked=${booked}
-          onAccept=${accept}
-          onRelease=${release}
-        />
-      <//>
-    </div>
-
-    <div class="mt-6">
-      <${Panel} title="Commitment ledger — what the network has promised">
-        ${!ledger || !ledger.commitments.length
-          ? html`<${Empty}>nothing booked<//>`
-          : html`<div class="link-scroll">
-              <table class="link-table">
-                <thead>
-                  <tr>
-                    <th>request</th>
-                    <th>satellite</th>
-                    <th>station</th>
-                    <th>start</th>
-                    <th>end</th>
-                    <th class="num">Gbit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${ledger.commitments.map(
-                    (c, i) => html`<tr key=${i}>
-                      <td>${c.request_id}</td>
-                      <td>${c.satellite_id}</td>
-                      <td>${c.station}</td>
-                      <td>T+${clock(c.t_start)}</td>
-                      <td>T+${clock(c.t_end)}</td>
-                      <td class="num">${c.gbit.toFixed(2)}</td>
-                    </tr>`,
-                  )}
-                </tbody>
-              </table>
-              <div class="meta-row" style=${{ marginTop: "12px" }}>
-                <span>Total <span class="on">${ledger.total_gbit.toFixed(1)} Gbit</span></span>
-                ${Object.entries(ledger.by_station).map(
-                  ([g, v]) => html`<span key=${g}>${g} <span class="on">${v.toFixed(1)}</span></span>`,
-                )}
+    <div class="xn-plan">
+      <!-- ------------------------------------------------------ 01 request -->
+      <section class="xsec">
+        <${Head} idx="01" title="Communication request"
+                 note="mission-level input only — station, timing and beam are answers" />
+        <div class="xcols">
+          <div class="xpanel">
+            <div class="xcap">
+              <span>Request</span>
+              <span class="n">${net.preset}</span>
+            </div>
+            <${Field} label="Satellite">
+              <select value=${sat} onChange=${(e) => setSat(e.currentTarget.value)}>
+                ${net.satellites.map((s) => html`<option key=${s} value=${s}>${s}</option>`)}
+              </select>
+            <//>
+            <${Field} label="Data volume (Gbit)">
+              <input type="number" step="0.1" min="0.1" value=${volume}
+                     onInput=${(e) => setVolume(e.currentTarget.value)} />
+            <//>
+            <div class="xfield">
+              <label style=${{ display: "block" }}>Timing intent</label>
+              <div class="xseg">
+                ${INTENTS.map(([v, l]) => html`
+                  <button key=${v} class=${intent === v ? "on" : ""}
+                          onClick=${() => setIntent(v)}>${l}</button>`)}
               </div>
-            </div>`}
-      <//>
+            </div>
+            ${intent === "by_deadline" && html`
+              <${Field} label="Deadline (s from now)">
+                <input type="number" step="60" min="1" value=${deadline}
+                       onInput=${(e) => setDeadline(e.currentTarget.value)} />
+              <//>`}
+            <${Field} label="Customer">
+              <select value=${customer} onChange=${(e) => setCustomer(e.currentTarget.value)}>
+                <option value="">— none —</option>
+                ${customers.map((c) => html`
+                  <option key=${c.customer_id} value=${c.customer_id}>${c.customer_id}</option>`)}
+              </select>
+            <//>
+            <${Field} label="Priority override">
+              <select value=${priority} onChange=${(e) => setPriority(e.currentTarget.value)}>
+                ${PRIORITIES.map((p) => html`
+                  <option key=${p} value=${p}>${p || "— from account —"}</option>`)}
+              </select>
+            <//>
+
+            <div class="xbtnrow">
+              <button class="xbtn" disabled=${busy || !sat} onClick=${quote}>Get plan</button>
+              <button class="xbtn ghost" disabled=${busy || !sat} onClick=${enqueue}>Queue it</button>
+            </div>
+            ${err && html`<div class="xerr">${err}</div>`}
+
+            <div style=${{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--p-line)" }}>
+              <${Row} k="Tier" v=${account ? account.tier : "—"}
+                      u=${account ? ` w${account.priority}` : ""} />
+              <${Row} k="SLA" v=${account ? (account.sla_availability * 100).toFixed(1) : "—"} u="%" />
+              <${Row} k="Quota" v=${account && account.quota_gbit !== null
+                        ? g1(account.quota_gbit) : "unmetered"}
+                      u=${account && account.quota_gbit !== null ? "Gbit" : ""} />
+            </div>
+          </div>
+
+          <${PlanPanel} plan=${plan} booked=${booked} busy=${busy}
+                        onAccept=${accept} onRelease=${release} />
+        </div>
+      </section>
+
+      <!-- -------------------------------------------------------- 03 queue -->
+      <section class="xsec">
+        <${Head} idx="02" title="Multi-request arbitration"
+                 note="dry run — nothing is booked until you commit" />
+        <${QueuePanel} queue=${queue}
+                       onRemove=${(id) => setQueue((q) => q.filter((r) => r.request_id !== id))}
+                       onClear=${() => setQueue([])} />
+      </section>
+
+      <!-- ------------------------------------------------------- 04 ledger -->
+      <section class="xsec">
+        <${Head} idx="03" title="Commitment ledger"
+                 note="capacity is consumed, not re-promised" />
+        <${LedgerPanel} ledger=${ledger} />
+      </section>
     </div>
   `;
 }

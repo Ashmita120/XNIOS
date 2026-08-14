@@ -1,0 +1,246 @@
+/* ==========================================================================
+   PLAN view — direction B.
+
+   Scoped to `.xn-plan`. The B palette is a full theme change and the other
+   console sections have not been ported yet, so the tokens live on the wrapper
+   rather than :root and `styles.css` is untouched. When OPERATE and STUDY
+   follow, these move up to :root and the prefix goes away.
+   ========================================================================== */
+
+.xn-plan {
+  --p-bg: #040706;
+  --p-panel: #080d0b;
+  --p-panel-2: #0c1310;
+  --p-panel-3: #111a16;
+  --p-line: #16211b;
+  --p-line-2: #223328;
+  --p-dim: #4a6f5c;
+  --p-mid: #7ea894;
+  --p-fg: #dff0e6;
+  --p-accent: #16d47b;
+  --p-accent-2: #0e8a51;
+  --p-warn: #e0b341;
+  --p-crit: #ff6b6b;
+
+  --p-micro: 9.5px;
+  --p-xs: 10.5px;
+  --p-sm: 11.5px;
+  --p-md: 13px;
+  --p-xl: 32px;
+
+  --p1: 4px;  --p2: 8px;  --p3: 12px; --p4: 16px;
+  --p5: 24px; --p6: 32px; --p7: 48px;
+
+  background: var(--p-bg);
+  color: var(--p-fg);
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--p-sm);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  padding: var(--p5);
+  /* structure you feel rather than see */
+  background-image:
+    repeating-linear-gradient(0deg, rgba(22, 212, 123, 0.016) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, rgba(22, 212, 123, 0.016) 0 1px, transparent 1px 40px);
+}
+.xn-plan *,
+.xn-plan *::before,
+.xn-plan *::after { box-sizing: border-box; }
+
+/* --- section head ------------------------------------------------------- */
+.xn-plan .xsec { margin-bottom: var(--p7); }
+.xn-plan .xsec:last-child { margin-bottom: 0; }
+.xn-plan .xhead {
+  display: flex; align-items: baseline; gap: var(--p3); flex-wrap: wrap;
+  border-bottom: 1px solid var(--p-line-2);
+  padding-bottom: var(--p2); margin-bottom: var(--p4);
+}
+.xn-plan .xidx { font-size: var(--p-micro); color: var(--p-accent-2); letter-spacing: 0.14em; font-weight: 600; }
+.xn-plan .xtitle { font-size: var(--p-md); font-weight: 600; letter-spacing: 0.04em; color: var(--p-fg); }
+.xn-plan .xnote { margin-left: auto; font-size: var(--p-xs); color: var(--p-dim); letter-spacing: 0.04em; }
+
+/* --- panel -------------------------------------------------------------- */
+.xn-plan .xpanel {
+  position: relative; background: var(--p-panel);
+  border: 1px solid var(--p-line); padding: var(--p4);
+}
+/* corner ticks mark the edge without a heavy border */
+.xn-plan .xpanel::before,
+.xn-plan .xpanel::after {
+  content: ""; position: absolute; width: 7px; height: 7px; pointer-events: none;
+  border-color: var(--p-line-2); border-style: solid;
+}
+.xn-plan .xpanel::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+.xn-plan .xpanel::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+.xn-plan .xcap {
+  font-size: var(--p-micro); letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--p-dim); font-weight: 500;
+  padding-bottom: var(--p2); margin-bottom: var(--p3);
+  border-bottom: 1px solid var(--p-line);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--p3);
+}
+.xn-plan .xcap .n { color: var(--p-accent-2); letter-spacing: 0.1em; }
+.xn-plan .xcap.bare { border: none; padding: 0; margin-bottom: var(--p2); }
+
+.xn-plan .xcols { display: grid; grid-template-columns: 340px 1fr; gap: var(--p4); align-items: start; }
+.xn-plan .xhalf { display: grid; grid-template-columns: 1fr 1fr; gap: var(--p5); }
+@media (max-width: 940px) {
+  .xn-plan .xcols, .xn-plan .xhalf { grid-template-columns: 1fr; }
+  .xn-plan { padding: var(--p4); }
+}
+
+/* --- form --------------------------------------------------------------- */
+.xn-plan .xfield { margin-bottom: var(--p3); }
+.xn-plan .xfield > label {
+  display: block; font-size: var(--p-micro); letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--p-dim); font-weight: 500; margin-bottom: var(--p1);
+}
+.xn-plan .xfield select,
+.xn-plan .xfield input {
+  display: block; width: 100%; background: var(--p-bg);
+  border: 1px solid var(--p-line-2); border-radius: 0;
+  padding: var(--p2) var(--p3); font-size: var(--p-sm); color: var(--p-fg);
+  font-family: inherit; font-weight: 500; outline: none;
+  transition: border-color 0.2s;
+}
+.xn-plan .xfield select:focus,
+.xn-plan .xfield input:focus { border-color: var(--p-accent-2); }
+.xn-plan .xfield option { background: var(--p-panel-2); color: var(--p-fg); }
+
+.xn-plan .xseg { display: flex; border: 1px solid var(--p-line-2); }
+.xn-plan .xseg button {
+  flex: 1; background: transparent; border: none; border-right: 1px solid var(--p-line-2);
+  padding: var(--p2) 0; font-family: inherit; font-size: var(--p-xs);
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--p-dim); cursor: pointer;
+}
+.xn-plan .xseg button:last-child { border-right: none; }
+.xn-plan .xseg button.on { background: var(--p-accent); color: #04120b; font-weight: 700; }
+
+.xn-plan .xbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--p2);
+  background: var(--p-accent); color: #04120b; border: 1px solid var(--p-accent);
+  padding: var(--p2) var(--p4); font-family: inherit; font-size: var(--p-sm);
+  font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+}
+.xn-plan .xbtn.ghost { background: transparent; color: var(--p-mid); border-color: var(--p-line-2); font-weight: 500; }
+.xn-plan .xbtn:disabled { opacity: 0.35; cursor: not-allowed; }
+.xn-plan .xbtnrow { display: flex; gap: var(--p2); margin-top: var(--p4); flex-wrap: wrap; }
+
+/* --- rows --------------------------------------------------------------- */
+.xn-plan .xrow {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--p4);
+  padding: var(--p2) 0; border-bottom: 1px solid var(--p-line);
+}
+.xn-plan .xrow:last-child { border-bottom: none; }
+.xn-plan .xrow .k {
+  font-size: var(--p-xs); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--p-dim); white-space: nowrap;
+}
+.xn-plan .xrow .v { font-size: var(--p-sm); font-weight: 500; text-align: right; }
+.xn-plan .xrow .v .u { color: var(--p-dim); font-weight: 400; font-size: var(--p-xs); margin-left: 2px; }
+.xn-plan .xrow .v.accent { color: var(--p-accent); font-weight: 600; }
+.xn-plan .xrow .v.warn { color: var(--p-warn); }
+.xn-plan .xrow .v.crit { color: var(--p-crit); }
+.xn-plan .muted { color: var(--p-dim); }
+
+/* --- verdict + heroes --------------------------------------------------- */
+.xn-plan .xverdict {
+  display: flex; align-items: center; gap: var(--p3); flex-wrap: wrap;
+  padding: var(--p3) var(--p4); margin: calc(var(--p4) * -1) calc(var(--p4) * -1) var(--p4);
+  border-bottom: 1px solid var(--p-line-2);
+  background: linear-gradient(90deg, rgba(22, 212, 123, 0.10), transparent 65%);
+}
+.xn-plan .xverdict.warn { background: linear-gradient(90deg, rgba(224, 179, 65, 0.10), transparent 65%); }
+.xn-plan .xverdict.crit { background: linear-gradient(90deg, rgba(255, 107, 107, 0.10), transparent 65%); }
+.xn-plan .xverdict .tag {
+  font-size: var(--p-md); font-weight: 700; letter-spacing: 0.12em;
+  color: var(--p-accent); text-shadow: 0 0 14px rgba(22, 212, 123, 0.45);
+}
+.xn-plan .xverdict.warn .tag { color: var(--p-warn); text-shadow: 0 0 14px rgba(224, 179, 65, 0.4); }
+.xn-plan .xverdict.crit .tag { color: var(--p-crit); text-shadow: 0 0 14px rgba(255, 107, 107, 0.4); }
+.xn-plan .xverdict .meta {
+  margin-left: auto; text-align: right; font-size: var(--p-micro);
+  color: var(--p-dim); letter-spacing: 0.1em;
+}
+.xn-plan .xverdict .meta b { display: block; color: var(--p-mid); font-weight: 500; }
+
+.xn-plan .xheros {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--p-line); margin-bottom: var(--p4);
+}
+.xn-plan .xhero { background: var(--p-panel-2); padding: var(--p3) var(--p4); }
+.xn-plan .xhero .l {
+  font-size: var(--p-micro); letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--p-dim); margin-bottom: var(--p1);
+}
+.xn-plan .xhero .n { font-size: var(--p-xl); font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; }
+.xn-plan .xhero .n em {
+  font-style: normal; font-size: var(--p-md); font-weight: 400;
+  color: var(--p-dim); margin-left: 3px;
+}
+.xn-plan .xhero.on .n { color: var(--p-accent); text-shadow: 0 0 18px rgba(22, 212, 123, 0.3); }
+/* segmented because the quantity behind it is counted, not continuous */
+.xn-plan .xmeter { display: flex; gap: 2px; margin-top: var(--p2); }
+.xn-plan .xmeter i { flex: 1; height: 3px; background: var(--p-line-2); }
+.xn-plan .xmeter i.on { background: var(--p-accent); box-shadow: 0 0 5px rgba(22, 212, 123, 0.55); }
+
+/* --- checklist / prose -------------------------------------------------- */
+.xn-plan .xchk {
+  display: flex; align-items: baseline; gap: var(--p2);
+  padding: 3px 0; font-size: var(--p-sm); color: var(--p-mid);
+}
+.xn-plan .xchk .m { width: 12px; flex: 0 0 12px; font-weight: 700; }
+.xn-plan .xchk .m.ok { color: var(--p-accent); }
+.xn-plan .xchk .m.bad { color: var(--p-crit); }
+.xn-plan .xchk .m.na { color: var(--p-dim); }
+.xn-plan .xwhy {
+  margin: var(--p2) 0 0; padding-left: var(--p4);
+  font-size: var(--p-sm); color: var(--p-mid); line-height: 1.75;
+}
+.xn-plan .xwhy li::marker { color: var(--p-accent-2); }
+.xn-plan .xerr {
+  border: 1px solid #3a1c1c; background: rgba(255, 107, 107, 0.06);
+  color: var(--p-crit); padding: var(--p2) var(--p3);
+  font-size: var(--p-sm); margin-top: var(--p3);
+}
+.xn-plan .xempty { color: var(--p-dim); font-size: var(--p-sm); padding: var(--p5) 0; text-align: center; }
+
+/* --- comparison --------------------------------------------------------- */
+.xn-plan .xcmp { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--p-line); }
+.xn-plan .xcmp > div { background: var(--p-panel-2); padding: var(--p4); }
+.xn-plan .xcmp > div.win { background: var(--p-panel-3); box-shadow: inset 2px 0 0 var(--p-accent); }
+.xn-plan .xcmp .l {
+  font-size: var(--p-micro); letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--p-dim); margin-bottom: var(--p2);
+}
+.xn-plan .xcmp .n { font-size: var(--p-xl); font-weight: 300; line-height: 1; }
+.xn-plan .xcmp .n em { font-style: normal; font-size: var(--p-md); color: var(--p-dim); margin-left: 2px; }
+.xn-plan .xcmp > div.win .n { color: var(--p-accent); text-shadow: 0 0 18px rgba(22, 212, 123, 0.3); font-weight: 500; }
+.xn-plan .xcmp .d { font-size: var(--p-xs); color: var(--p-dim); margin-top: var(--p2); }
+
+/* --- table -------------------------------------------------------------- */
+.xn-plan .xscroll { overflow-x: auto; }
+.xn-plan table { width: 100%; border-collapse: collapse; min-width: 520px; }
+.xn-plan thead th {
+  text-align: left; font-size: var(--p-micro); font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--p-dim);
+  padding: 0 var(--p3) var(--p2) 0; border-bottom: 1px solid var(--p-line-2); white-space: nowrap;
+}
+.xn-plan tbody td {
+  padding: var(--p2) var(--p3) var(--p2) 0;
+  border-bottom: 1px solid var(--p-line); font-size: var(--p-sm); white-space: nowrap;
+}
+.xn-plan tbody tr:last-child td { border-bottom: none; }
+.xn-plan td.num, .xn-plan th.num { text-align: right; padding-right: 0; }
+.xn-plan .xbadge {
+  font-size: var(--p-micro); letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 2px 6px; border: 1px solid var(--p-line-2); color: var(--p-mid);
+}
+.xn-plan .xbadge.hi { color: var(--p-accent); border-color: var(--p-accent-2); }
+.xn-plan .xbadge.mid { color: var(--p-warn); border-color: #3d3418; }
+.xn-plan .xbadge.lo { color: var(--p-crit); border-color: #3a1c1c; }
+.xn-plan .xdel {
+  background: transparent; border: none; color: var(--p-dim);
+  font-family: inherit; font-size: var(--p-md); cursor: pointer; padding: 0 var(--p2);
+}
+.xn-plan .xdel:hover { color: var(--p-crit); }

@@ -49,7 +49,19 @@ def _bind(preset: str, horizon_s: float = 86400.0) -> dict:
     if preset not in all_p:
         raise HTTPException(404, f"unknown preset '{preset}'")
     scn = scenario_from_config(dict(all_p[preset]))
-    _STATE["planner"] = Planner(scn, t0=0.0, horizon_s=horizon_s)
+    planner = Planner(scn, t0=0.0, horizon_s=horizon_s)
+    # One account per tier, so a freshly started server is immediately usable:
+    # tier, SLA and quota render on the first request instead of "—", and the
+    # batch comparison has something to arbitrate between. Replace or add your
+    # own via POST /api/plan/customers.
+    for tier, sla, quota in (("research", 0.95, 400.0),
+                             ("commercial", 0.99, 800.0),
+                             ("military", 0.999, None),
+                             ("emergency", 0.9999, None)):
+        planner.register_customer(Customer(
+            customer_id=f"ACCT-{tier.upper()}", name=f"{tier.title()} account",
+            tier=tier, sla_availability=sla, quota_gbit=quota))
+    _STATE["planner"] = planner
     _STATE["preset"] = preset
     _STATE["quotes"] = {}
     return _network_info()

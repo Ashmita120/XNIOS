@@ -278,20 +278,7 @@ function Console() {
 
         <!-- -------------------------------------------------------------- plan -->
         <section id="plan" class="section">
-          <div class="section-head">
-            <div>
-              <${Eyebrow}>Communication planning<//>
-              <h2 class="section-title">Ask the network for something</h2>
-            </div>
-            <p class="section-note">
-              The only panel here that requests rather than reports. A request carries
-              mission-level fields only — which satellite, how much data, when it is needed.
-              Station, beam geometry, frequency and timing come back as answers. Quoting is free;
-              accepting is what consumes capacity.
-            </p>
-          </div>
-
-          <div class="mt-6"><${PlanningConsole} /></div>
+          <${PlanningConsole} />
         </section>
 
         <!-- ---------------------------------------------------------- decision -->
