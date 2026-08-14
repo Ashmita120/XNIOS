@@ -178,7 +178,10 @@ def main() -> None:
                 inr_reuse=s_col["mean_inr"], inr_noreuse=s_same["mean_inr"]))
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    path = os.path.join(RESULTS_DIR, "beam_freq_control.csv")
+    # Tag the envelope into the filename: a --max-scan run answers a different
+    # question from the default and must not overwrite it.
+    tag = "" if args.max_scan is None else f"_scan{int(args.max_scan)}"
+    path = os.path.join(RESULTS_DIR, f"beam_freq_control{tag}.csv")
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
