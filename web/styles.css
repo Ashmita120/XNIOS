@@ -161,7 +161,7 @@ code {
   justify-content: center;
   gap: 16px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--mute);
@@ -248,8 +248,8 @@ code {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: rgb(var(--viz-rgb));
-  box-shadow: 0 0 0 0 rgba(var(--viz-rgb), 0.7);
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent), 0 0 0 0 rgba(var(--accent-rgb), 0.7);
   animation: beat 2.4s infinite;
   vertical-align: middle;
 }
@@ -262,10 +262,11 @@ code {
   align-items: center;
   gap: 0.7em;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 9.5px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.28em;
-  color: var(--mute);
+  letter-spacing: 0.2em;
+  color: var(--accent-2);
 }
 .eyebrow::before {
   content: "";
@@ -280,7 +281,8 @@ code {
 
 .label {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 9.5px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--mute);
@@ -325,7 +327,12 @@ code {
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid var(--line);
-  padding: 14px 20px;
+  padding: 10px 16px;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mute);
 }
 /* a title and a row of export links are both flex items, and flex items refuse
    to shrink past min-content by default — on a phone that held the whole page
@@ -336,7 +343,7 @@ code {
 .panel-body {
   min-height: 0;
   flex: 1;
-  padding: 20px;
+  padding: 16px;
 }
 .panel-body.tight {
   padding-top: 4px;
@@ -387,17 +394,19 @@ code {
   gap: 8px;
   border: 1px solid var(--line-2);
   border-radius: 0;
-  padding: 9px 18px;
+  padding: 8px 16px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--fg);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
   transition: all 0.3s var(--ease);
 }
 .pill:hover:not(:disabled) {
-  border-color: var(--fg);
-  background: var(--fg);
-  color: var(--bg);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--sel-fg);
 }
 .pill:disabled {
   cursor: not-allowed;
@@ -421,7 +430,7 @@ code {
   border-radius: 0;
   padding: 4px 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   white-space: nowrap;
@@ -436,7 +445,7 @@ code {
   padding: 0 24px;
   text-align: center;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--mute);
@@ -456,16 +465,18 @@ code {
 }
 .row-k {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--mute);
+  white-space: nowrap;
 }
 .row-v {
   min-width: 0;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 13px;
+  font-size: 11.5px;
+  font-weight: 500;
   text-align: right;
   overflow-wrap: anywhere;
 }
@@ -475,26 +486,27 @@ code {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 20px;
+  padding: 12px 16px;
 }
 .stat-value-row {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin-top: 16px;
+  margin-top: 8px;
 }
 .stat-value {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(1.7rem, 3.2vw, 2.5rem);
-  font-weight: 500;
-  line-height: 1;
+  font-size: 32px;
+  font-weight: 300;
+  line-height: 1.05;
   letter-spacing: -0.02em;
 }
 .stat-unit {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
+  font-weight: 400;
   color: var(--mute);
 }
 .stat .meter {
@@ -503,7 +515,7 @@ code {
 .stat-sub {
   margin-top: 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1.35;
   color: var(--mute);
 }
@@ -521,16 +533,17 @@ code {
   min-width: 0;
   border: 1px solid var(--line-2);
   border-radius: 0;
-  background: transparent;
-  padding: 8px 16px;
+  background: var(--bg);
+  padding: 8px 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
   color: var(--fg);
   outline: none;
   transition: border-color 0.3s var(--ease);
 }
 .field select:focus {
-  border-color: var(--mute);
+  border-color: var(--accent-2);
 }
 .field select:disabled {
   color: var(--mute);
@@ -587,7 +600,7 @@ code {
   animation: ping2 3.2s var(--ease) infinite;
 }
 .nav-name {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.34em;
 }
@@ -595,7 +608,7 @@ code {
   margin-left: 8px;
   display: none;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--mute);
@@ -609,7 +622,7 @@ code {
   position: relative;
   padding: 4px 0;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   letter-spacing: 0.12em;
   color: var(--dim);
   transition: color 0.3s var(--ease);
@@ -640,7 +653,7 @@ code {
   align-items: center;
   gap: 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -671,28 +684,28 @@ code {
 }
 
 .section {
-  margin-top: 64px;
+  margin-top: 40px;
 }
 
 .section-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
   gap: 16px;
 }
 
 .section-title {
   margin-top: 12px;
-  font-size: clamp(1.5rem, 2.6vw, 2rem);
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .section-note {
   max-width: 46ch;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1.6;
   color: var(--mute);
 }
@@ -700,18 +713,19 @@ code {
 .hero-title {
   margin-top: 20px;
   max-width: 18ch;
-  font-size: clamp(2rem, 5vw, 3.6rem);
-  font-weight: 500;
-  line-height: 1.02;
-  letter-spacing: -0.02em;
+  font-size: clamp(18px, 2.2vw, 24px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
 }
 
 .hero-lead {
   margin-top: 20px;
   max-width: 62ch;
-  font-size: clamp(1rem, 1.4vw, 1.15rem);
-  font-weight: 300;
-  line-height: 1.65;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.75;
+  max-width: 96ch;
   color: var(--dim);
 }
 
@@ -724,7 +738,7 @@ code {
   border-top: 1px solid var(--line);
   padding-top: 16px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -738,7 +752,7 @@ code {
   border-top: 1px solid var(--line);
   padding-top: 24px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   line-height: 1.8;
@@ -811,7 +825,7 @@ code {
   border-radius: 0;
   padding: 5px 14px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -829,7 +843,7 @@ code {
   flex-shrink: 0;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--mute);
@@ -910,7 +924,7 @@ code {
 }
 .chart-tick {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   fill: var(--mute);
 }
@@ -927,7 +941,7 @@ code {
   background: var(--bg);
   padding: 8px 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.6;
   color: var(--dim);
   white-space: nowrap;
@@ -1015,7 +1029,7 @@ code {
   background: var(--bg);
   padding: 6px 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.6;
   color: var(--dim);
 }
@@ -1082,7 +1096,7 @@ code {
   transform: translateY(-50%);
   white-space: nowrap;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--mute);
@@ -1101,7 +1115,7 @@ code {
   bottom: 16px;
   left: 20px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--mute);
@@ -1115,7 +1129,7 @@ code {
   right: 20px;
   top: 16px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--mute);
@@ -1166,7 +1180,7 @@ code {
 .map-filter button {
   padding: 5px 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 9px;
+  font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -1200,7 +1214,7 @@ code {
   align-items: center;
   justify-content: center;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--dim);
   transition: color 0.2s var(--ease);
 }
@@ -1231,7 +1245,7 @@ code {
   gap: 12px;
 }
 .gs-row-id {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 .gs-row-grid {
@@ -1247,7 +1261,7 @@ code {
 .gs-row-val {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: 11.5px;
 }
 .gs-row-val .muted {
   margin-left: 6px;
@@ -1256,7 +1270,7 @@ code {
 .gs-row-sub {
   margin-top: 5px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 9px;
+  font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--mute);
@@ -1274,7 +1288,7 @@ code {
   padding: 2px 8px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--dim);
 }
 .gs-row-foot {
@@ -1284,7 +1298,7 @@ code {
   align-items: center;
   gap: 4px 16px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--mute);
@@ -1330,7 +1344,7 @@ code {
   padding: 8px 4px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 .link-table tr:last-child td {
   border-bottom: none;
@@ -1347,7 +1361,7 @@ code {
 .link-summary {
   padding: 4px 4px 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -1358,7 +1372,7 @@ code {
 .link-state {
   margin-left: 2px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 9px;
+  font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -1400,7 +1414,7 @@ code {
   color: var(--mute);
 }
 .link-flag {
-  font-size: 9px;
+  font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -1408,7 +1422,7 @@ code {
 .link-inr {
   display: block;
   margin-top: 3px;
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--mute);
 }
 
@@ -1425,7 +1439,7 @@ code {
   border-bottom: 1px solid var(--line);
   padding: 8px 0;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 .event:last-child {
   border-bottom: none;
@@ -1471,7 +1485,7 @@ code {
   border-radius: 0;
   padding: 4px 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--dim);
 }
 .chip .muted {
@@ -1497,7 +1511,7 @@ code {
   flex-wrap: wrap;
   gap: 4px 20px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--mute);
 }
 
@@ -1524,7 +1538,7 @@ code {
 }
 .ind-tag {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 9px;
+  font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -1557,7 +1571,7 @@ code {
   flex-wrap: wrap;
   gap: 4px 16px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--mute);
 }
 .factors .v {
@@ -1566,7 +1580,7 @@ code {
 .ind-note {
   margin-top: 6px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   font-style: italic;
   color: var(--mute);
 }
@@ -1576,7 +1590,7 @@ code {
 .health-notes p {
   margin-top: 8px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.7;
   color: var(--mute);
 }
@@ -1617,7 +1631,7 @@ code {
 }
 .preset-size {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--mute);
@@ -1654,7 +1668,7 @@ code {
   align-items: center;
   gap: 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--mute);
@@ -1688,7 +1702,7 @@ code {
 
 .note {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.7;
   color: var(--mute);
 }
@@ -1706,7 +1720,7 @@ code {
   align-items: center;
   gap: 6px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
@@ -1796,7 +1810,7 @@ code {
   border-bottom: 1px solid var(--line);
   padding: 6px 0;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 .fc-row:last-child {
   border-bottom: none;
@@ -1824,7 +1838,7 @@ code {
 .fc-note {
   margin-top: 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.7;
   color: var(--mute);
 }
@@ -1841,10 +1855,11 @@ code {
   min-width: 0;
   border: 1px solid var(--line-2);
   border-radius: 0;
-  background: transparent;
-  padding: 8px 16px;
+  background: var(--bg);
+  padding: 8px 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
   color: var(--fg);
   outline: none;
   transition: border-color 0.3s var(--ease);
@@ -1882,7 +1897,7 @@ code {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--dim);
 }
 .check-mark {
@@ -1894,7 +1909,7 @@ code {
 .why {
   margin: 8px 0 0;
   padding-left: 16px;
-  font-size: 12px;
+  font-size: 11.5px;
   line-height: 1.7;
   color: var(--dim);
 }
@@ -1923,7 +1938,7 @@ code {
   letter-spacing: 0.2em;
   color: var(--fg);
 }
-.viewhead .vnote { font-size: 11px; color: var(--mute); letter-spacing: 0.04em; }
+.viewhead .vnote { font-size: 11.5px; color: var(--mute); letter-spacing: 0.04em; }
 .viewhead .vspace { flex: 1; }
 .viewhead .vcount {
   font-size: 9.5px;
