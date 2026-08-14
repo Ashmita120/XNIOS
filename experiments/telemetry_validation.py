@@ -32,7 +32,12 @@ CHECKS = []
 
 # Wall-clock measurements: nondeterministic by construction, so they are excluded
 # from the identity check and shown to vary between two *untelemetered* runs too.
-TIMING_KEYS = {"mean_decision_ms", "max_decision_ms"}
+# Wall-clock measurements, excluded from the bit-identical assertion because they
+# cannot be identical across two runs of anything. Keep this in step with
+# KPI_KEYS: adding a timing KPI without listing it here fails T1 and looks like
+# telemetry contamination, which is the one thing T1 exists to detect.
+TIMING_KEYS = {"mean_decision_ms", "p50_decision_ms", "p99_decision_ms",
+               "max_decision_ms"}
 
 
 def check(ok: bool, label: str, detail: str = "") -> None:

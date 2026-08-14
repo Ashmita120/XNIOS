@@ -1,20 +1,79 @@
-# X-NioS Digital Twin (v0)
+# X-NioS
 
-A measurable simulation world for satellite ↔ ground-station scheduling and
-resource-allocation experiments. Built **simple → realistic → intelligent**: the
-world is deterministic and validated *before* any optimisation or AI is tested on it.
-
-**Status:** V1 complete (twin, resource allocation, dynamics, controlled
-experiments). V2 Phase 1 — **telemetry + health + dashboard** — complete; see
-[DASHBOARD.md](DASHBOARD.md).
+**Physics-driven satellite communication planning and resource orchestration.**
+A user submits a communication request; X-NioS decides whether it can be
+accepted, when and where it should happen, and what the network must commit —
+using exact orbital mechanics and an analytical capacity forecast rather than a
+learned model.
 
 ```
-python experiments/phase1_validation.py      # -> 13/13 checks, "SIMULATOR VALIDATED"
-python experiments/telemetry_validation.py   # -> 40/40 checks, "TELEMETRY LAYER VALIDATED"
+                USER  ──►  CommunicationRequest
+                                  │
+                                  ▼
+                          ┌───────────────┐
+                          │ XNIOS PLANNER │  admission · SLA · quota
+                          │               │  exact lookahead · oppcost
+                          └───────┬───────┘
+                                  ▼
+                        CommunicationPlan
+              station · timing · beam requirement · capacity
+                                  │
+                                  ▼
+                        EXECUTOR  (scheduler, allocators)
+                                  │
+                                  ▼
+        PHYSICS TWIN   orbit → visibility → link budget → capacity
 ```
 
-Only dependency for the core: **numpy** — and that still holds with telemetry on
-(`xnios/telemetry.py` and `xnios/health.py` are stdlib-only).
+ML sits **outside** this core, not inside it. Every predictive target tested so
+far failed a feasibility or value gate against an analytical or trivial
+baseline — see [DECISIONS.md](DECISIONS.md), which records what is settled, on
+what evidence, and what would legitimately reopen it. "ML closed" means no
+evidence it improves the current system, not that it is impossible.
+
+**Status:** planner, admission control, quota, conformance and console complete.
+Frequency and joint beam/frequency optimisation closed as measured nulls. The
+scan envelope is the one open lever with a large simulated effect and an
+unresolved physical optimum.
+
+## Quick start
+
+```
+python run_api.py                            # planner + console at :8000
+python experiments/planner_demo.py           # request -> plan, end to end
+python experiments/plan_conformance.py       # 5 structural checks + execution
+python experiments/phase1_validation.py      # 13/13, "SIMULATOR VALIDATED"
+python experiments/telemetry_validation.py   # 40/40, "TELEMETRY LAYER VALIDATED"
+```
+
+Only dependency for the core: **numpy**. `xnios/telemetry.py` and
+`xnios/health.py` are stdlib-only; the planner adds scipy for the reference
+oracle only, which is not in the live path.
+
+## What decides what
+
+| Question | Answered by | How |
+|---|---|---|
+| Can this request be accepted? | `planner.plan` | capacity forecast vs commitment ledger |
+| Which station, which window? | `planner.plan` | contact windows + cumulative-bits curves |
+| Which request goes first? | `planner.plan_batch` | `oppcost`, re-scored after every booking |
+| When does it complete? | `Pass.time_for_bits` | inverse of the capacity curve |
+| Which satellite switches station? | `simulator` | `handover_mode="capacity"` |
+| What channel? | `allocators.GraphColorFreq` | at execution, per step — provably optimal here |
+| How far from optimal? | `request_oracle` | MILP reference, research/CI only |
+
+## Experiments
+
+Each is runnable and writes to `experiments/results/`.
+
+```
+experiments/realtime_benchmark.py    budget · policy-vs-oracle · levers
+experiments/scan_envelope.py         Model A/B beam broadening sweep
+experiments/multirequest_control.py  positive control: is there a decision gap?
+experiments/policy_ladder.py         how much of the gap each rule closes
+experiments/beam_freq_control.py     3B-0: does frequency choice decide anything?
+experiments/plan_conformance.py      does the executor honour the plan?
+```
 
 ## The UI (point-and-click)
 
