@@ -48,6 +48,7 @@ from xnios.health import assess, timeline, DEFAULT_WEIGHTS
 from xnios.telemetry import to_rows, SCHEMA_VERSION
 
 from . import presets as presets_mod
+from .planning import router as planning_router
 from .store import STORE
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,6 +75,11 @@ class StartRun(BaseModel):
     pace_ms: float = Field(0.0, ge=0.0, le=1000.0)   # >0 = stream at a watchable rate
     duration_s: float | None = None
     dt_s: float | None = None
+
+
+# The operational surface: request in, plan out. Registered before the static
+# mount so /api/plan/* wins over the console's catch-all.
+app.include_router(planning_router)
 
 
 @app.get("/api/policies")

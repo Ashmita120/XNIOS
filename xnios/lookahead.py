@@ -87,6 +87,22 @@ class Pass:
         hi = float(np.interp(min(t_end, self.t_set), self._grid, self._cum))
         return max(0.0, hi - lo)
 
+    def time_for_bits(self, t_from: float, bits: float) -> float | None:
+        """When `bits` have been delivered, starting at `t_from`. None if never.
+
+        The inverse of the cumulative curve. This is what makes a plan able to
+        say "completes at t+143 s" instead of quoting the end of the window —
+        a transfer that only needs part of a pass finishes inside it, and
+        deadline compliance depends on the difference.
+        """
+        start = max(t_from, self.t_rise)
+        if bits <= 0:
+            return start
+        target = float(np.interp(start, self._grid, self._cum)) + bits
+        if target > self._cum[-1] + 1e-6:
+            return None                      # the pass cannot carry that much
+        return float(np.interp(target, self._cum, self._grid))
+
 
 class Lookahead:
     """Every contact in the horizon, indexed for O(1) real-time queries.
