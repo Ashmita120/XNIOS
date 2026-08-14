@@ -3,284 +3,436 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>X-NioS — planner restyle directions</title>
+    <title>X-NioS — planner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      /* ================================================================
-         Three restyle directions for the SAME planner UI.
+      /* ==================================================================
+         X-NioS planner — direction B, developed.
 
-         Structure, components and content are identical in all three —
-         only palette, type, density and surface treatment change. That is
-         what makes the comparison fair: whatever you pick, plan.js keeps
-         its markup and only styles.css tokens move.
+         One typeface at five weights, one 4 px spacing grid, one accent.
+         Everything "digital" here is doing a job: the rule under a heading
+         separates, the corner ticks mark a panel edge, the LED shows live
+         state, the meter is segmented because the underlying quantity is
+         counted rather than continuous. No scanlines, no CRT curvature —
+         the numbers have to stay readable at 11 px.
+         ================================================================== */
 
-         Content is real output from POST /api/plan.
-         ================================================================ */
+      :root {
+        /* surfaces — four steps, dark to light, so nesting reads without borders */
+        --bg:       #040706;
+        --panel:    #080d0b;
+        --panel-2:  #0c1310;
+        --panel-3:  #111a16;
+        --line:     #16211b;
+        --line-2:   #223328;
+
+        /* text — three tiers only. more than three and hierarchy stops working */
+        --dim:      #4a6f5c;   /* labels, units, chrome */
+        --mid:      #7ea894;   /* secondary values, prose */
+        --fg:       #dff0e6;   /* primary values */
+
+        --accent:   #16d47b;   /* live, good, the thing you look at */
+        --accent-2: #0e8a51;
+        --warn:     #e0b341;
+        --crit:     #ff6b6b;
+
+        /* type scale */
+        --fs-micro: 9.5px;
+        --fs-xs:    10.5px;
+        --fs-sm:    11.5px;
+        --fs-md:    13px;
+        --fs-xl:    32px;
+
+        /* 4 px grid */
+        --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+        --s5: 24px; --s6: 32px; --s7: 48px;
+      }
 
       *, *::before, *::after { box-sizing: border-box; }
+
       body {
         margin: 0;
-        background: #101014;
-        color: #e8e8ea;
-        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: var(--fs-sm);
+        font-weight: 400;
+        line-height: 1.5;
+        font-variant-numeric: tabular-nums;
         -webkit-font-smoothing: antialiased;
+        /* the faintest possible grid: structure you feel rather than see */
+        background-image:
+          repeating-linear-gradient(0deg, rgba(22,212,123,0.016) 0 1px, transparent 1px 40px),
+          repeating-linear-gradient(90deg, rgba(22,212,123,0.016) 0 1px, transparent 1px 40px);
       }
-      .page { max-width: 1600px; margin: 0 auto; padding: 32px 24px 80px; }
-      .page > header { margin-bottom: 28px; }
-      .page h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
-      .page p.lead { margin: 0; color: #9a9aa4; font-size: 13px; max-width: 70ch; line-height: 1.6; }
-      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
-      @media (max-width: 1200px) { .grid { grid-template-columns: 1fr; } }
 
-      .col > .tag {
-        display: flex; align-items: baseline; gap: 10px;
-        margin: 0 0 10px; padding: 0 2px;
+      /* ------------------------------------------------------------ chrome */
+      header.top {
+        position: sticky; top: 0; z-index: 10;
+        display: flex; align-items: center; gap: var(--s5);
+        padding: var(--s3) var(--s5);
+        background: rgba(4,7,6,0.92);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--line);
       }
-      .tag b { font-size: 13px; font-weight: 600; }
-      .tag span { font-size: 11px; color: #8a8a94; }
+      .brand { display: flex; align-items: center; gap: var(--s2); }
+      .brand .mark {
+        font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.14em; color: var(--fg);
+      }
+      .brand .sub { font-size: var(--fs-micro); letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; }
+      .top nav { display: flex; gap: var(--s4); margin-left: var(--s5); }
+      .top nav a {
+        font-size: var(--fs-xs); letter-spacing: 0.14em; text-transform: uppercase;
+        color: var(--dim); text-decoration: none; padding-bottom: 2px; border-bottom: 1px solid transparent;
+      }
+      .top nav a.on { color: var(--fg); border-bottom-color: var(--accent); }
+      .top .right { margin-left: auto; display: flex; align-items: center; gap: var(--s4); }
+      .stat-inline { font-size: var(--fs-xs); color: var(--dim); letter-spacing: 0.08em; }
+      .stat-inline b { color: var(--mid); font-weight: 500; }
 
-      /* the mock surface each direction paints inside */
-      .mock { border-radius: 10px; overflow: hidden; }
+      .led {
+        width: 6px; height: 6px; border-radius: 50%;
+        background: var(--accent); box-shadow: 0 0 6px var(--accent);
+        display: inline-block; margin-right: var(--s2);
+        animation: pulse 2.4s ease-in-out infinite;
+      }
+      @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
 
-      /* ---------------------------------------------------------------
-         A — INSTRUMENT.  The current ARCTROPY language, tightened.
-         Near-black, hairline rules, wide-tracked eyebrows, monospace
-         numerics. Nothing shouts; the data is the only bright thing.
-         --------------------------------------------------------------- */
-      .a { background: #08080a; border: 1px solid #1b1b20; color: #f2f2f3; padding: 20px; }
-      .a .eyebrow { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #6b6b73; margin-bottom: 14px; }
-      .a .verdict { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-      .a .pill { font-size: 11px; letter-spacing: 0.08em; color: #6f9c78; border: 1px solid #24352a; border-radius: 999px; padding: 4px 10px; }
-      .a .rid { font-size: 11px; color: #6b6b73; font-family: ui-monospace, monospace; }
-      .a .row { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid #131317; font-size: 12px; }
-      .a .row:last-child { border-bottom: none; }
-      .a .row .k { color: #9a9aa2; }
-      .a .row .v { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-      .a .sub { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #6b6b73; margin: 18px 0 6px; }
-      .a .field { margin-bottom: 10px; }
-      .a .field label { display: block; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #6b6b73; margin-bottom: 5px; }
-      .a .field .ctl { border: 1px solid #2a2a30; border-radius: 999px; padding: 8px 14px; font-size: 12px; font-family: ui-monospace, monospace; color: #f2f2f3; }
-      .a .btn { display: inline-block; border: 1px solid #f2f2f3; background: #f2f2f3; color: #08080a; border-radius: 999px; padding: 8px 18px; font-size: 12px; }
-      .a .btn.ghost { background: transparent; color: #f2f2f3; border-color: #2a2a30; }
-      .a .chk { display: flex; gap: 8px; font-size: 12px; color: #9a9aa2; padding: 3px 0; }
-      .a .why { font-size: 11.5px; color: #9a9aa2; line-height: 1.7; margin: 6px 0 0; padding-left: 15px; }
+      main { max-width: 1360px; margin: 0 auto; padding: var(--s6) var(--s5) var(--s7); }
 
-      /* ---------------------------------------------------------------
-         B — TERMINAL.  Operations-floor density. Monospace throughout,
-         tighter rhythm, status carries saturated colour, rules are real
-         rather than hairline. More on screen, read at a glance, built for
-         someone watching it all shift.
-         --------------------------------------------------------------- */
-      .b { background: #0b0f0d; border: 1px solid #1d2a24; color: #d7e3dc; padding: 16px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-      .b .eyebrow { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #4f7a63; border-bottom: 1px solid #1d2a24; padding-bottom: 7px; margin-bottom: 12px; }
-      .b .verdict { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-      .b .pill { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; background: #16d47b; color: #05130c; border-radius: 3px; padding: 3px 9px; }
-      .b .rid { font-size: 11px; color: #4f7a63; }
-      .b .row { display: flex; justify-content: space-between; gap: 14px; padding: 4px 0; font-size: 11.5px; }
-      .b .row .k { color: #6d9a83; text-transform: uppercase; letter-spacing: 0.04em; font-size: 10.5px; }
-      .b .row .v { font-variant-numeric: tabular-nums; color: #eaf6ef; }
-      .b .row .v.hot { color: #16d47b; }
-      .b .sub { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #4f7a63; border-bottom: 1px solid #1d2a24; padding-bottom: 6px; margin: 16px 0 8px; }
-      .b .field { margin-bottom: 8px; }
-      .b .field label { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #4f7a63; margin-bottom: 4px; }
-      .b .field .ctl { border: 1px solid #24362c; background: #070b09; border-radius: 3px; padding: 7px 10px; font-size: 11.5px; color: #eaf6ef; }
-      .b .btn { display: inline-block; background: #16d47b; color: #05130c; border-radius: 3px; padding: 7px 16px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; }
-      .b .btn.ghost { background: transparent; color: #6d9a83; border: 1px solid #24362c; font-weight: 400; }
-      .b .chk { display: flex; gap: 8px; font-size: 11.5px; color: #6d9a83; padding: 2px 0; }
-      .b .why { font-size: 11px; color: #6d9a83; line-height: 1.65; margin: 6px 0 0; padding-left: 14px; }
+      /* ----------------------------------------------------------- section */
+      .sec { margin-bottom: var(--s7); }
+      .sec-head {
+        display: flex; align-items: baseline; gap: var(--s3);
+        border-bottom: 1px solid var(--line-2);
+        padding-bottom: var(--s2); margin-bottom: var(--s4);
+      }
+      .sec-idx { font-size: var(--fs-micro); color: var(--accent-2); letter-spacing: 0.14em; font-weight: 600; }
+      .sec-title { font-size: var(--fs-md); font-weight: 600; letter-spacing: 0.04em; color: var(--fg); }
+      .sec-note { margin-left: auto; font-size: var(--fs-xs); color: var(--dim); letter-spacing: 0.04em; }
 
-      /* ---------------------------------------------------------------
-         C — PRODUCT.  Light, spacious, commercial. Soft surfaces, rounded
-         cards, colour used sparingly and only where it means something.
-         Reads as a service someone buys rather than an instrument someone
-         operates — the register to pick if the planner faces customers.
-         --------------------------------------------------------------- */
-      .c { background: #ffffff; border: 1px solid #e6e6ea; color: #17171c; padding: 22px; box-shadow: 0 1px 2px rgba(16,16,22,0.04), 0 8px 24px -12px rgba(16,16,22,0.12); }
-      .c .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #71717a; margin-bottom: 14px; }
-      .c .verdict { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-      .c .pill { font-size: 12px; font-weight: 600; background: #e8f5ee; color: #1a6b42; border-radius: 6px; padding: 5px 11px; }
-      .c .rid { font-size: 12px; color: #a1a1aa; }
-      .c .row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #f2f2f5; font-size: 13px; }
-      .c .row:last-child { border-bottom: none; }
-      .c .row .k { color: #71717a; }
-      .c .row .v { font-weight: 500; font-variant-numeric: tabular-nums; }
-      .c .sub { font-size: 12px; font-weight: 600; color: #17171c; margin: 20px 0 4px; }
-      .c .field { margin-bottom: 12px; }
-      .c .field label { display: block; font-size: 12px; font-weight: 500; color: #52525b; margin-bottom: 6px; }
-      .c .field .ctl { border: 1px solid #e0e0e6; border-radius: 8px; padding: 9px 12px; font-size: 13px; color: #17171c; background: #fcfcfd; }
-      .c .btn { display: inline-block; background: #17171c; color: #fff; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 500; }
-      .c .btn.ghost { background: #fff; color: #52525b; border: 1px solid #e0e0e6; }
-      .c .chk { display: flex; gap: 9px; font-size: 13px; color: #52525b; padding: 4px 0; }
-      .c .why { font-size: 12.5px; color: #52525b; line-height: 1.7; margin: 6px 0 0; padding-left: 16px; }
+      /* ------------------------------------------------------------- panel */
+      .panel {
+        position: relative;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: var(--s4);
+      }
+      /* corner ticks — marks the panel edge without a heavy border */
+      .panel::before, .panel::after {
+        content: ""; position: absolute; width: 7px; height: 7px; pointer-events: none;
+        border-color: var(--line-2); border-style: solid;
+      }
+      .panel::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+      .panel::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+      .panel > .cap {
+        font-size: var(--fs-micro); letter-spacing: 0.2em; text-transform: uppercase;
+        color: var(--dim); font-weight: 500;
+        padding-bottom: var(--s2); margin-bottom: var(--s3);
+        border-bottom: 1px solid var(--line);
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .panel > .cap .n { color: var(--accent-2); letter-spacing: 0.1em; }
 
-      /* shared skeleton so all three render identical structure */
-      .ctl { display: block; width: 100%; }
-      .btnrow { display: flex; gap: 8px; margin-top: 14px; }
-      ul.why { margin-top: 6px; }
-      .ok { color: #16a34a; } .bad { color: #dc2626; } .na { color: #a1a1aa; }
-      .b .ok { color: #16d47b; } .b .bad { color: #ff5d5d; } .b .na { color: #4f7a63; }
-      .a .ok { color: #6f9c78; } .a .bad { color: #b3625c; } .a .na { color: #6b6b73; }
-      .card + .card { margin-top: 18px; }
-      table.led { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-      table.led th { text-align: left; font-weight: 400; padding-bottom: 6px; }
-      table.led td { padding: 5px 0; font-variant-numeric: tabular-nums; }
-      .a table.led th { color: #6b6b73; border-bottom: 1px solid #1b1b20; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
-      .a table.led td { border-bottom: 1px solid #131317; font-family: ui-monospace, monospace; }
-      .b table.led th { color: #4f7a63; border-bottom: 1px solid #1d2a24; font-size: 10px; text-transform: uppercase; }
-      .b table.led td { border-bottom: 1px solid #121a16; }
-      .c table.led { font-size: 12.5px; }
-      .c table.led th { color: #71717a; border-bottom: 1px solid #e6e6ea; }
-      .c table.led td { border-bottom: 1px solid #f2f2f5; }
-      .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
-      .cmp .box { padding: 10px; border-radius: 6px; }
-      .a .cmp .box { border: 1px solid #1b1b20; }
-      .b .cmp .box { border: 1px solid #1d2a24; background: #070b09; }
-      .c .cmp .box { border: 1px solid #e6e6ea; background: #fbfbfc; border-radius: 8px; }
-      .cmp .n { font-size: 18px; font-variant-numeric: tabular-nums; }
-      .cmp .l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.7; margin-bottom: 3px; }
-      .win { font-weight: 600; }
-      .a .win { color: #6f9c78; } .b .win { color: #16d47b; } .c .win { color: #16a34a; }
+      .cols { display: grid; grid-template-columns: 340px 1fr; gap: var(--s4); align-items: start; }
+      @media (max-width: 940px) { .cols { grid-template-columns: 1fr; } }
+
+      /* ------------------------------------------------------------- forms */
+      .field { margin-bottom: var(--s3); }
+      .field > label {
+        display: block; font-size: var(--fs-micro); letter-spacing: 0.16em;
+        text-transform: uppercase; color: var(--dim); font-weight: 500; margin-bottom: var(--s1);
+      }
+      .ctl {
+        display: flex; align-items: center; justify-content: space-between;
+        width: 100%; background: var(--bg); border: 1px solid var(--line-2);
+        padding: var(--s2) var(--s3); font-size: var(--fs-sm); color: var(--fg);
+        font-family: inherit; font-weight: 500;
+      }
+      .ctl .unit { color: var(--dim); font-weight: 400; font-size: var(--fs-xs); }
+      .ctl.sel::after { content: "▾"; color: var(--dim); font-size: var(--fs-xs); }
+      .seg { display: flex; border: 1px solid var(--line-2); }
+      .seg > span {
+        flex: 1; text-align: center; padding: var(--s2) 0;
+        font-size: var(--fs-xs); letter-spacing: 0.1em; text-transform: uppercase;
+        color: var(--dim); border-right: 1px solid var(--line-2); cursor: default;
+      }
+      .seg > span:last-child { border-right: none; }
+      .seg > span.on { background: var(--accent); color: #04120b; font-weight: 700; }
+
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+        background: var(--accent); color: #04120b; border: 1px solid var(--accent);
+        padding: var(--s2) var(--s4); font-family: inherit; font-size: var(--fs-sm);
+        font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      }
+      .btn.ghost { background: transparent; color: var(--mid); border-color: var(--line-2); font-weight: 500; }
+      .btnrow { display: flex; gap: var(--s2); margin-top: var(--s4); }
+
+      /* -------------------------------------------------------------- rows */
+      .row {
+        display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4);
+        padding: var(--s2) 0; border-bottom: 1px solid var(--line);
+      }
+      .row:last-child { border-bottom: none; }
+      .row .k {
+        font-size: var(--fs-xs); letter-spacing: 0.1em; text-transform: uppercase;
+        color: var(--dim); font-weight: 400; white-space: nowrap;
+      }
+      .row .v { font-size: var(--fs-sm); font-weight: 500; color: var(--fg); text-align: right; }
+      .row .v .unit { color: var(--dim); font-weight: 400; font-size: var(--fs-xs); margin-left: 2px; }
+      .row .v.accent { color: var(--accent); font-weight: 600; }
+
+      /* ------------------------------------------------------------ verdict */
+      .verdict {
+        display: flex; align-items: center; gap: var(--s3);
+        padding: var(--s3) var(--s4); margin: calc(var(--s4) * -1) calc(var(--s4) * -1) var(--s4);
+        background: linear-gradient(90deg, rgba(22,212,123,0.10), transparent 65%);
+        border-bottom: 1px solid var(--line-2);
+      }
+      .verdict .tag {
+        font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.12em;
+        color: var(--accent); text-shadow: 0 0 14px rgba(22,212,123,0.45);
+      }
+      .verdict .meta { margin-left: auto; text-align: right; font-size: var(--fs-micro); color: var(--dim); letter-spacing: 0.1em; }
+      .verdict .meta b { display: block; color: var(--mid); font-weight: 500; }
+
+      /* hero readouts */
+      .heros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); margin-bottom: var(--s4); }
+      .hero { background: var(--panel-2); padding: var(--s3) var(--s4); }
+      .hero .l { font-size: var(--fs-micro); letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); margin-bottom: var(--s1); }
+      .hero .n { font-size: var(--fs-xl); font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; color: var(--fg); }
+      .hero .n em { font-style: normal; font-size: var(--fs-md); font-weight: 400; color: var(--dim); margin-left: 3px; }
+      .hero.on .n { color: var(--accent); text-shadow: 0 0 18px rgba(22,212,123,0.3); }
+
+      /* segmented meter — counted quantities get ticks, not a smooth bar */
+      .meter { display: flex; gap: 2px; margin-top: var(--s2); }
+      .meter i { flex: 1; height: 3px; background: var(--line-2); }
+      .meter i.on { background: var(--accent); box-shadow: 0 0 5px rgba(22,212,123,0.55); }
+      .meter i.warn { background: var(--warn); }
+
+      /* ---------------------------------------------------------- checklist */
+      .chk { display: flex; align-items: baseline; gap: var(--s2); padding: 3px 0; font-size: var(--fs-sm); color: var(--mid); }
+      .chk .m { width: 12px; flex: 0 0 12px; font-weight: 700; }
+      .chk .m.ok { color: var(--accent); } .chk .m.bad { color: var(--crit); } .chk .m.na { color: var(--dim); }
+      .why { margin: var(--s2) 0 0; padding-left: var(--s4); font-size: var(--fs-sm); color: var(--mid); line-height: 1.75; }
+      .why li::marker { color: var(--accent-2); }
+
+      /* -------------------------------------------------------- comparison */
+      .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+      .cmp > div { background: var(--panel-2); padding: var(--s4); }
+      .cmp > div.win { background: var(--panel-3); box-shadow: inset 2px 0 0 var(--accent); }
+      .cmp .l { font-size: var(--fs-micro); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); margin-bottom: var(--s2); }
+      .cmp .n { font-size: var(--fs-xl); font-weight: 300; line-height: 1; }
+      .cmp .n em { font-style: normal; font-size: var(--fs-md); color: var(--dim); margin-left: 2px; }
+      .cmp > div.win .n { color: var(--accent); text-shadow: 0 0 18px rgba(22,212,123,0.3); font-weight: 500; }
+      .cmp .d { font-size: var(--fs-xs); color: var(--dim); margin-top: var(--s2); letter-spacing: 0.04em; }
+
+      /* -------------------------------------------------------------- table */
+      table { width: 100%; border-collapse: collapse; }
+      thead th {
+        text-align: left; font-size: var(--fs-micro); font-weight: 500;
+        letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
+        padding: 0 var(--s3) var(--s2) 0; border-bottom: 1px solid var(--line-2);
+      }
+      tbody td { padding: var(--s2) var(--s3) var(--s2) 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+      tbody tr:last-child td { border-bottom: none; }
+      td.num, th.num { text-align: right; padding-right: 0; }
+      td .muted { color: var(--dim); }
+      .badge {
+        font-size: var(--fs-micro); letter-spacing: 0.1em; text-transform: uppercase;
+        padding: 2px 6px; border: 1px solid var(--line-2); color: var(--mid);
+      }
+      .badge.hi { color: var(--accent); border-color: var(--accent-2); }
+      .badge.mid { color: var(--warn); border-color: #3d3418; }
+
+      footer.foot {
+        border-top: 1px solid var(--line); margin-top: var(--s7); padding-top: var(--s4);
+        font-size: var(--fs-xs); color: var(--dim); letter-spacing: 0.04em;
+      }
     </style>
   </head>
+
   <body>
-    <div class="page">
-      <header>
-        <h1>Planner restyle — three directions</h1>
-        <p class="lead">
-          Same structure, same components, same real output from <code>POST /api/plan</code>.
-          Only palette, type, density and surface treatment differ. Whichever you pick,
-          <code>web/js/plan.js</code> keeps its markup — the change lands in the
-          <code>styles.css</code> tokens. Scroll: request form, plan card, admission,
-          multi-request comparison, ledger.
-        </p>
-      </header>
-
-      <div class="grid">
-        <!-- ============================= A ============================= -->
-        <div class="col">
-          <div class="tag"><b>A · Instrument</b><span>current language, tightened</span></div>
-          <div class="mock a">
-            <div class="eyebrow">Communication request</div>
-            <div class="field"><label>Satellite</label><div class="ctl">SAT-000</div></div>
-            <div class="field"><label>Data volume</label><div class="ctl">18.4 Gbit</div></div>
-            <div class="field"><label>Timing</label><div class="ctl">asap</div></div>
-            <div class="field"><label>Customer</label><div class="ctl">CUSTOMER-17</div></div>
-            <div class="btnrow"><span class="btn">Get plan</span></div>
-
-            <div class="sub">Communication plan</div>
-            <div class="verdict"><span class="pill">TRANSMIT NOW</span><span class="rid">REQ-0001 · contact_open</span></div>
-            <div class="row"><span class="k">Station</span><span class="v">Ahmedabad-SAC</span></div>
-            <div class="row"><span class="k">Start</span><span class="v">T+00:00</span></div>
-            <div class="row"><span class="k">Completes</span><span class="v">T+01:07</span></div>
-            <div class="row"><span class="k">Scheduled</span><span class="v">18.4 Gbit</span></div>
-            <div class="row"><span class="k">Scan angle</span><span class="v">12.4°</span></div>
-            <div class="row"><span class="k">Frequency</span><span class="v">X-band · at exec</span></div>
-            <div class="sub">Admission</div>
-            <div class="chk"><span class="ok">✓</span>contact available</div>
-            <div class="chk"><span class="ok">✓</span>capacity reserved</div>
-            <div class="chk"><span class="na">–</span>deadline satisfied (n/a)</div>
-            <div class="chk"><span class="ok">✓</span>quota available</div>
-            <div class="sub">Why</div>
-            <ul class="why"><li>18.4 Gbit deliverable across 1 contact</li><li>Next chance Bengaluru in 48m</li></ul>
-            <div class="btnrow"><span class="btn">Accept plan</span><span class="btn ghost">Release</span></div>
-
-            <div class="sub">Multi-request · policy comparison</div>
-            <div class="cmp">
-              <div class="box"><div class="l">FCFS</div><div class="n">7.7%</div></div>
-              <div class="box"><div class="l">Oppcost</div><div class="n win">30.8%</div></div>
-            </div>
-            <div class="sub">Commitment ledger</div>
-            <table class="led"><thead><tr><th>req</th><th>station</th><th>start</th><th>Gbit</th></tr></thead>
-              <tbody>
-                <tr><td>REQ-0001</td><td>Ahmedabad</td><td>T+00:00</td><td>18.4</td></tr>
-                <tr><td>REQ-0002</td><td>Delhi</td><td>T+04:12</td><td>25.0</td></tr>
-              </tbody></table>
-          </div>
-        </div>
-
-        <!-- ============================= B ============================= -->
-        <div class="col">
-          <div class="tag"><b>B · Terminal</b><span>operations floor, dense</span></div>
-          <div class="mock b">
-            <div class="eyebrow">Communication request</div>
-            <div class="field"><label>Satellite</label><div class="ctl">SAT-000</div></div>
-            <div class="field"><label>Data volume</label><div class="ctl">18.4 Gbit</div></div>
-            <div class="field"><label>Timing</label><div class="ctl">asap</div></div>
-            <div class="field"><label>Customer</label><div class="ctl">CUSTOMER-17</div></div>
-            <div class="btnrow"><span class="btn">GET PLAN</span></div>
-
-            <div class="sub">Communication plan</div>
-            <div class="verdict"><span class="pill">TRANSMIT NOW</span><span class="rid">REQ-0001 · contact_open</span></div>
-            <div class="row"><span class="k">station</span><span class="v">Ahmedabad-SAC</span></div>
-            <div class="row"><span class="k">start</span><span class="v">T+00:00</span></div>
-            <div class="row"><span class="k">completes</span><span class="v">T+01:07</span></div>
-            <div class="row"><span class="k">scheduled</span><span class="v hot">18.4 Gbit</span></div>
-            <div class="row"><span class="k">scan angle</span><span class="v">12.4°</span></div>
-            <div class="row"><span class="k">frequency</span><span class="v">X-band · at exec</span></div>
-            <div class="sub">Admission</div>
-            <div class="chk"><span class="ok">✓</span>contact available</div>
-            <div class="chk"><span class="ok">✓</span>capacity reserved</div>
-            <div class="chk"><span class="na">–</span>deadline satisfied (n/a)</div>
-            <div class="chk"><span class="ok">✓</span>quota available</div>
-            <div class="sub">Why</div>
-            <ul class="why"><li>18.4 Gbit deliverable across 1 contact</li><li>Next chance Bengaluru in 48m</li></ul>
-            <div class="btnrow"><span class="btn">ACCEPT</span><span class="btn ghost">RELEASE</span></div>
-
-            <div class="sub">Multi-request · policy comparison</div>
-            <div class="cmp">
-              <div class="box"><div class="l">fcfs</div><div class="n">7.7%</div></div>
-              <div class="box"><div class="l">oppcost</div><div class="n win">30.8%</div></div>
-            </div>
-            <div class="sub">Commitment ledger</div>
-            <table class="led"><thead><tr><th>REQ</th><th>STATION</th><th>START</th><th>GBIT</th></tr></thead>
-              <tbody>
-                <tr><td>REQ-0001</td><td>Ahmedabad</td><td>T+00:00</td><td>18.4</td></tr>
-                <tr><td>REQ-0002</td><td>Delhi</td><td>T+04:12</td><td>25.0</td></tr>
-              </tbody></table>
-          </div>
-        </div>
-
-        <!-- ============================= C ============================= -->
-        <div class="col">
-          <div class="tag"><b>C · Product</b><span>light, customer-facing</span></div>
-          <div class="mock c">
-            <div class="eyebrow">Communication request</div>
-            <div class="field"><label>Satellite</label><div class="ctl">SAT-000</div></div>
-            <div class="field"><label>Data volume</label><div class="ctl">18.4 Gbit</div></div>
-            <div class="field"><label>Timing</label><div class="ctl">As soon as possible</div></div>
-            <div class="field"><label>Customer</label><div class="ctl">CUSTOMER-17</div></div>
-            <div class="btnrow"><span class="btn">Get plan</span></div>
-
-            <div class="sub">Communication plan</div>
-            <div class="verdict"><span class="pill">Transmit now</span><span class="rid">REQ-0001</span></div>
-            <div class="row"><span class="k">Station</span><span class="v">Ahmedabad-SAC</span></div>
-            <div class="row"><span class="k">Start</span><span class="v">T+00:00</span></div>
-            <div class="row"><span class="k">Completes</span><span class="v">T+01:07</span></div>
-            <div class="row"><span class="k">Scheduled</span><span class="v">18.4 Gbit</span></div>
-            <div class="row"><span class="k">Scan angle</span><span class="v">12.4°</span></div>
-            <div class="row"><span class="k">Frequency</span><span class="v">X-band · at execution</span></div>
-            <div class="sub">Admission</div>
-            <div class="chk"><span class="ok">✓</span>Contact available</div>
-            <div class="chk"><span class="ok">✓</span>Capacity reserved</div>
-            <div class="chk"><span class="na">–</span>Deadline satisfied (n/a)</div>
-            <div class="chk"><span class="ok">✓</span>Quota available</div>
-            <div class="sub">Why</div>
-            <ul class="why"><li>18.4 Gbit deliverable across 1 contact</li><li>Next chance Bengaluru in 48m</li></ul>
-            <div class="btnrow"><span class="btn">Accept plan</span><span class="btn ghost">Release</span></div>
-
-            <div class="sub">Multi-request · policy comparison</div>
-            <div class="cmp">
-              <div class="box"><div class="l">First come</div><div class="n">7.7%</div></div>
-              <div class="box"><div class="l">Priority-aware</div><div class="n win">30.8%</div></div>
-            </div>
-            <div class="sub">Commitment ledger</div>
-            <table class="led"><thead><tr><th>Request</th><th>Station</th><th>Start</th><th>Gbit</th></tr></thead>
-              <tbody>
-                <tr><td>REQ-0001</td><td>Ahmedabad</td><td>T+00:00</td><td>18.4</td></tr>
-                <tr><td>REQ-0002</td><td>Delhi</td><td>T+04:12</td><td>25.0</td></tr>
-              </tbody></table>
-          </div>
-        </div>
+    <header class="top">
+      <div class="brand">
+        <span class="mark">X-NioS</span>
+        <span class="sub">planner</span>
       </div>
-    </div>
+      <nav>
+        <a href="#">Overview</a><a href="#">Map</a><a href="#">Resources</a>
+        <a href="#" class="on">Plan</a><a href="#">Decision</a><a href="#">Scenario</a>
+      </nav>
+      <div class="right">
+        <span class="stat-inline">NET <b>india4-nominal</b></span>
+        <span class="stat-inline">20 SAT · 4 GS</span>
+        <span class="stat-inline">141 CONTACTS</span>
+        <span class="stat-inline"><span class="led"></span><b>LIVE</b> T+00:00:00</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============================================ 01 request → plan -->
+      <section class="sec">
+        <div class="sec-head">
+          <span class="sec-idx">01</span>
+          <span class="sec-title">Communication request</span>
+          <span class="sec-note">mission-level input only — station, timing and beam are answers</span>
+        </div>
+
+        <div class="cols">
+          <div class="panel">
+            <div class="cap">Request <span class="n">REQ-0001</span></div>
+            <div class="field"><label>Satellite</label><div class="ctl sel">SAT-000</div></div>
+            <div class="field"><label>Data volume</label><div class="ctl">18.4 <span class="unit">Gbit</span></div></div>
+            <div class="field">
+              <label>Timing intent</label>
+              <div class="seg"><span class="on">ASAP</span><span>Deadline</span><span>Flexible</span></div>
+            </div>
+            <div class="field"><label>Customer</label><div class="ctl sel">CUSTOMER-17</div></div>
+            <div class="field"><label>Priority override</label><div class="ctl sel">— from account</div></div>
+            <div class="btnrow"><span class="btn">Get plan</span></div>
+            <div style="margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--line)">
+              <div class="row"><span class="k">Tier</span><span class="v">military <span class="unit">w3</span></span></div>
+              <div class="row"><span class="k">SLA</span><span class="v">99.9<span class="unit">%</span></span></div>
+              <div class="row"><span class="k">Quota left</span><span class="v">481.6<span class="unit">Gbit</span></span></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="verdict">
+              <span class="tag">TRANSMIT NOW</span>
+              <span class="meta"><b>contact_open</b>REQ-0001 · quoted, not booked</span>
+            </div>
+
+            <div class="heros">
+              <div class="hero on">
+                <div class="l">Deliverable</div>
+                <div class="n">18.4<em>Gbit</em></div>
+                <div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+              </div>
+              <div class="hero">
+                <div class="l">Completes</div>
+                <div class="n">01:07</div>
+                <div class="meter"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div class="hero">
+                <div class="l">Scan angle</div>
+                <div class="n">12.4<em>°</em></div>
+                <div class="meter"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+            </div>
+
+            <div class="cols" style="grid-template-columns:1fr 1fr;gap:var(--s5)">
+              <div>
+                <div class="row"><span class="k">Station</span><span class="v accent">Ahmedabad-SAC</span></div>
+                <div class="row"><span class="k">Start</span><span class="v">T+00:00</span></div>
+                <div class="row"><span class="k">Window</span><span class="v">67<span class="unit">s</span></span></div>
+                <div class="row"><span class="k">Contacts</span><span class="v">1</span></div>
+                <div class="row"><span class="k">Scheduled</span><span class="v">18.4<span class="unit">Gbit</span></span></div>
+                <div class="row"><span class="k">Shortfall</span><span class="v">0.0<span class="unit">Gbit</span></span></div>
+              </div>
+              <div>
+                <div class="row"><span class="k">Beams</span><span class="v">1</span></div>
+                <div class="row"><span class="k">Pointing</span><span class="v">az 207.4 / el 77.6<span class="unit">°</span></span></div>
+                <div class="row"><span class="k">Beamwidth</span><span class="v">3.00<span class="unit">°</span></span></div>
+                <div class="row"><span class="k">Envelope</span><span class="v accent">within ±60°</span></div>
+                <div class="row"><span class="k">Band</span><span class="v">X-band</span></div>
+                <div class="row"><span class="k">Channel</span><span class="v"><span class="muted">at execution</span></span></div>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s5);margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--line)">
+              <div>
+                <div class="cap" style="border:none;padding:0;margin-bottom:var(--s2)">Admission</div>
+                <div class="chk"><span class="m ok">✓</span>contact available</div>
+                <div class="chk"><span class="m ok">✓</span>capacity reserved</div>
+                <div class="chk"><span class="m na">–</span>deadline satisfied <span style="color:var(--dim)">(n/a)</span></div>
+                <div class="chk"><span class="m ok">✓</span>no satellite conflict</div>
+                <div class="chk"><span class="m ok">✓</span>quota available</div>
+              </div>
+              <div>
+                <div class="cap" style="border:none;padding:0;margin-bottom:var(--s2)">Next opportunity</div>
+                <div class="row"><span class="k">Station</span><span class="v">Bengaluru</span></div>
+                <div class="row"><span class="k">In</span><span class="v">48:16</span></div>
+                <div class="row"><span class="k">Capacity</span><span class="v">66.2<span class="unit">Gbit</span></span></div>
+              </div>
+            </div>
+
+            <ul class="why">
+              <li>18.4 Gbit deliverable across 1 contact, completing at T+01:07</li>
+              <li>Satellite is usable from Ahmedabad-SAC now; next chance is 48 min away</li>
+            </ul>
+
+            <div class="btnrow"><span class="btn">Accept plan</span><span class="btn ghost">Release</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================== 02 multi-request arbitration -->
+      <section class="sec">
+        <div class="sec-head">
+          <span class="sec-idx">02</span>
+          <span class="sec-title">Multi-request arbitration</span>
+          <span class="sec-note">12 requests · 2 satellites · overlapping deadlines · dry run, nothing booked</span>
+        </div>
+        <div class="panel">
+          <div class="cap">Policy comparison <span class="n">POST /api/plan/batch</span></div>
+          <div class="cmp">
+            <div>
+              <div class="l">fcfs — submission order</div>
+              <div class="n">7.7<em>%</em></div>
+              <div class="d">weighted completion · 2 of 12 met · 111.2 Gbit</div>
+            </div>
+            <div class="win">
+              <div class="l">oppcost — opportunity cost</div>
+              <div class="n">30.8<em>%</em></div>
+              <div class="d">weighted completion · 3 of 12 met · 111.2 Gbit</div>
+            </div>
+          </div>
+          <div style="margin-top:var(--s4)">
+            <table>
+              <thead><tr><th>#</th><th>Request</th><th>Tier</th><th>Satellite</th><th class="num">Volume</th><th class="num">Deadline</th><th>Outcome</th></tr></thead>
+              <tbody>
+                <tr><td class="muted">01</td><td>R05</td><td><span class="badge hi">emergency</span></td><td>SAT-001</td><td class="num">25.0</td><td class="num">T+06:40</td><td><span class="badge hi">met</span></td></tr>
+                <tr><td class="muted">02</td><td>R03</td><td><span class="badge">commercial</span></td><td>SAT-001</td><td class="num">20.0</td><td class="num">T+08:20</td><td><span class="badge hi">met</span></td></tr>
+                <tr><td class="muted">03</td><td>R04</td><td><span class="badge mid">military</span></td><td>SAT-000</td><td class="num">35.0</td><td class="num">T+13:20</td><td><span class="badge hi">met</span></td></tr>
+                <tr><td class="muted">04</td><td>R00</td><td><span class="badge">research</span></td><td>SAT-000</td><td class="num">45.0</td><td class="num">T+10:00</td><td><span class="badge mid">partial</span></td></tr>
+                <tr><td class="muted">05</td><td>R02</td><td><span class="badge">commercial</span></td><td>SAT-000</td><td class="num">55.0</td><td class="num">T+11:40</td><td><span class="badge">rejected</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =============================================== 03 the ledger -->
+      <section class="sec">
+        <div class="sec-head">
+          <span class="sec-idx">03</span>
+          <span class="sec-title">Commitment ledger</span>
+          <span class="sec-note">what the network has actually promised — capacity is consumed, not re-promised</span>
+        </div>
+        <div class="panel">
+          <div class="cap">Bookings <span class="n">43.4 GBIT TOTAL</span></div>
+          <table>
+            <thead><tr><th>Request</th><th>Satellite</th><th>Station</th><th class="num">Start</th><th class="num">End</th><th class="num">Gbit</th></tr></thead>
+            <tbody>
+              <tr><td>REQ-0001</td><td>SAT-000</td><td>Ahmedabad-SAC</td><td class="num">T+00:00</td><td class="num">T+01:07</td><td class="num">18.4</td></tr>
+              <tr><td>REQ-0002</td><td>SAT-004</td><td>Delhi</td><td class="num">T+04:12</td><td class="num">T+06:35</td><td class="num">25.0</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="foot">
+        X-NioS · physics-driven communication planning · quote is free, accept consumes capacity ·
+        channel assigned at execution by GraphColorFreq
+      </footer>
+    </main>
   </body>
 </html>
