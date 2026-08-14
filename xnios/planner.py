@@ -421,9 +421,14 @@ class Planner:
         need_gbit, cust, tier, priority = self._resolve(req)
         self.look.ensure(t_now)
 
+        # shortfall starts at the WHOLE request and is reduced by what gets
+        # scheduled. It must not default to 0: every early return below (unknown
+        # satellite, exhausted quota, no contact) exits with nothing scheduled,
+        # and a caller asking "was this covered?" via shortfall would read a
+        # rejection as a complete success.
         plan = CommPlan(request_id=req.request_id, satellite_id=req.satellite_id,
                         data_volume_gbit=need_gbit, decision=Decision.REJECT,
-                        admitted=False, reason_code="",
+                        admitted=False, reason_code="", shortfall_gbit=need_gbit,
                         customer_id=req.customer_id, tier=tier, priority=priority)
 
         if req.satellite_id not in self.sats:
@@ -615,9 +620,15 @@ class Planner:
             plan.explanation.append("Some capacity is shared with existing commitments")
 
     # -------------------------------------------------------------- booking
-    def accept(self, plan: CommPlan) -> bool:
-        """Book a quoted plan against the ledger. Later requests see it."""
-        if not plan.admitted:
+    def accept(self, plan: CommPlan, allow_partial: bool = False) -> bool:
+        """Book a quoted plan against the ledger. Later requests see it.
+
+        `allow_partial` books what the network *can* do for a request it cannot
+        fully satisfy. Off by default: silently half-delivering a job nobody
+        agreed to half-deliver is worse than refusing it. Under contention it is
+        the honest choice, which is why the multi-request study turns it on.
+        """
+        if not (plan.admitted or (allow_partial and plan.schedule)):
             return False
         for w in plan.schedule:
             self.commitments.append(Commitment(
