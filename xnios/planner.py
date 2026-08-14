@@ -177,6 +177,8 @@ class CommPlan:
     completes_at_s: float | None = None
     meets_deadline: bool | None = None
     next_opportunity: dict | None = None
+    quota_remaining_gbit: float | None = None    # None = unmetered account
+    quota_limited: bool = False                  # shortfall is the quota, not the network
     frequency: dict = field(default_factory=dict)
     beam_requirement: dict | None = None
     explanation: list = field(default_factory=list)
@@ -250,6 +252,7 @@ class Commitment:
     t_start: float
     t_end: float
     gbit: float
+    customer_id: str | None = None
 
 
 class Planner:
@@ -428,6 +431,19 @@ class Planner:
             plan.explanation.append(f"'{req.satellite_id}' is not in the network")
             return plan
 
+        # Quota caps how much of this request may be ADMITTED. It is charged
+        # against bookings, so a quote never consumes it.
+        quota_left = self.quota_remaining(req.customer_id)
+        plan.quota_remaining_gbit = None if quota_left == float("inf") else quota_left
+        if quota_left <= 0:
+            plan.decision = Decision.REJECT
+            plan.reason_code = "quota_exhausted"
+            plan.explanation.append(
+                f"Account {req.customer_id} has consumed its "
+                f"{self.customers[req.customer_id].quota_gbit:.1f} Gbit quota")
+            return plan
+        allowance = min(need_gbit, quota_left)
+
         t_limit = (req.deadline_s if req.timing is TimingIntent.BY_DEADLINE
                    and req.deadline_s is not None else t_now + self.horizon_s)
 
@@ -455,7 +471,7 @@ class Planner:
             return plan
 
         order = self._order(cands, req)
-        remaining = need_gbit
+        remaining = allowance
         # the satellite can only be on one link at a time, including against
         # contacts already booked for it by earlier requests
         sat_busy = [(c.t_start, c.t_end) for c in self.commitments
@@ -482,6 +498,9 @@ class Planner:
         plan.schedule.sort(key=lambda w: w.t_start)
         plan.scheduled_gbit = sum(w.deliverable_gbit for w in plan.schedule)
         plan.shortfall_gbit = max(0.0, need_gbit - plan.scheduled_gbit)
+        # was the shortfall the network's fault, or the account's allowance?
+        plan.quota_limited = (allowance < need_gbit - 1e-9
+                              and plan.scheduled_gbit >= allowance - 1e-6)
         self._decide(plan, req, cands, t_now, t_limit)
         return plan
 
@@ -541,12 +560,18 @@ class Planner:
         if plan.shortfall_gbit > 1e-6:
             plan.decision = Decision.PARTIAL
             plan.admitted = False
-            plan.reason_code = ("insufficient_capacity_before_deadline"
-                                if req.timing is TimingIntent.BY_DEADLINE
-                                else "insufficient_capacity_in_horizon")
-            plan.explanation.append(
-                f"Only {plan.scheduled_gbit:.1f} of {plan.data_volume_gbit:.1f} Gbit "
-                f"can be delivered ({plan.shortfall_gbit:.1f} Gbit short)")
+            if plan.quota_limited:
+                plan.reason_code = "quota_exceeded"
+                plan.explanation.append(
+                    f"Account quota allows {plan.quota_remaining_gbit:.1f} Gbit more; "
+                    f"{plan.data_volume_gbit:.1f} Gbit was requested")
+            else:
+                plan.reason_code = ("insufficient_capacity_before_deadline"
+                                    if req.timing is TimingIntent.BY_DEADLINE
+                                    else "insufficient_capacity_in_horizon")
+                plan.explanation.append(
+                    f"Only {plan.scheduled_gbit:.1f} of {plan.data_volume_gbit:.1f} Gbit "
+                    f"can be delivered ({plan.shortfall_gbit:.1f} Gbit short)")
         elif deferring:
             plan.decision = Decision.SCHEDULE
             plan.admitted = True
@@ -598,8 +623,21 @@ class Planner:
             self.commitments.append(Commitment(
                 request_id=plan.request_id, satellite_id=plan.satellite_id,
                 station=w.station, t_start=w.t_start, t_end=w.t_end,
-                gbit=w.deliverable_gbit))
+                gbit=w.deliverable_gbit, customer_id=plan.customer_id))
         return True
+
+    def committed_gbit(self, customer_id: str | None) -> float:
+        """Volume this account has actually booked. Quotas are charged here, not
+        at quote time — asking what a transfer would cost must be free."""
+        if customer_id is None:
+            return 0.0
+        return sum(c.gbit for c in self.commitments if c.customer_id == customer_id)
+
+    def quota_remaining(self, customer_id: str | None) -> float:
+        cust = self.customers.get(customer_id) if customer_id else None
+        if cust is None or cust.quota_gbit is None:
+            return float("inf")
+        return max(0.0, cust.quota_gbit - self.committed_gbit(customer_id))
 
     def release(self, request_id: str) -> int:
         n = len(self.commitments)

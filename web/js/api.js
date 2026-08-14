@@ -39,6 +39,24 @@ export const api = {
   start: (body) => json("/api/runs", { method: "POST", body: JSON.stringify(body) }),
   remove: (id) => json(`/api/runs/${id}`, { method: "DELETE" }),
   exportUrl: (id, face) => `${BASE}/api/runs/${id}/export/${face}.csv`,
+
+  /**
+   * The planning surface. Distinct from runs above: a run is a closed-loop
+   * what-if simulation, this is the operational request -> plan path, and the
+   * two share no state. `quote` books nothing — `accept` is what consumes
+   * capacity and charges the account's quota.
+   */
+  plan: {
+    network: () => json("/api/plan/network"),
+    bind: (body) => json("/api/plan/network", { method: "POST", body: JSON.stringify(body) }),
+    customers: () => json("/api/plan/customers"),
+    addCustomer: (body) =>
+      json("/api/plan/customers", { method: "POST", body: JSON.stringify(body) }),
+    quote: (body) => json("/api/plan", { method: "POST", body: JSON.stringify(body) }),
+    accept: (id) => json(`/api/plan/${id}/accept`, { method: "POST" }),
+    release: (id) => json(`/api/plan/${id}`, { method: "DELETE" }),
+    ledger: () => json("/api/plan/ledger"),
+  },
 };
 
 /** WebSocket URL for a run's live frame stream. */

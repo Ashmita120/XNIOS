@@ -1801,3 +1801,72 @@ code {
   margin-top: 2px;
   color: var(--mute);
 }
+
+/* --------------------------------------------------------------- planning */
+/* The request form reuses `.field`, which only styled <select>. Inputs get the
+   same pill so the two controls sit on one visual line. */
+.field input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  padding: 8px 16px;
+  font-family: "Google Sans", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--fg);
+  outline: none;
+  transition: border-color 0.3s var(--ease);
+}
+.field input:focus {
+  border-color: var(--mute);
+}
+.field input:disabled {
+  color: var(--mute);
+}
+
+.plan-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Admission as a checklist: a refusal should say which gate closed, not just
+   that one did. A dash means the gate does not apply to this request (no
+   deadline given, unmetered account) rather than that it passed. */
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.check {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.check-mark {
+  font-family: "Google Sans", ui-monospace, monospace;
+  width: 12px;
+  flex: 0 0 12px;
+}
+
+.why {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--dim);
+}
+.why li {
+  margin-bottom: 4px;
+}

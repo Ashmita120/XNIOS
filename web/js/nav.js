@@ -13,6 +13,7 @@ const SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "map", label: "Map" },
   { id: "resources", label: "Resources" },
+  { id: "plan", label: "Plan" },
   { id: "decision", label: "Decision" },
   { id: "scenario", label: "Scenario" },
 ];
