@@ -40,6 +40,10 @@ class SimConfig:
     # "elevation" = V1: compare elevation at t+lead against the *configured* mask.
     # "forecast"  = V2: exact seconds-to-LOS from xnios.forecast, which also honours
     #               the phased-array steering limit the elevation test ignores.
+    # "capacity"  = V3: same exact trigger, but the DESTINATION is chosen by the data
+    #               the alternative can actually carry (xnios.lookahead) rather than
+    #               by its instantaneous rate. "forecast" answers only *when* to leave;
+    #               this also answers *where* to go.
     handover_mode: str = "elevation"
 
 
@@ -108,6 +112,11 @@ class Simulator:
         if cfg.handover and cfg.handover_mode == "forecast":
             from .telemetry import _ForecastCache
             self._los_cache = _ForecastCache(self)         # windows once, lookups after
+        elif cfg.handover and cfg.handover_mode == "capacity":
+            from .lookahead import Lookahead                # windows + capacity curves
+            self._look = Lookahead(self.scn.satellites, self.scn.stations,
+                                   weather=self.scn.weather, t0=0.0,
+                                   span_s=cfg.duration_s + 5400.0)
 
         self.scheduler.bind(self.scn, self.cfg)            # look-ahead schedulers use this
         if self.tel is not None:
@@ -151,7 +160,8 @@ class Simulator:
             # 2b) proactive handover: move sessions about to lose their pass to a
             #     still-visible station BEFORE LOS, so there is no interruption
             if cfg.handover:
-                self._proactive_handover(session, busy, vis_by_sat, avail, t, metrics)
+                self._proactive_handover(session, busy, vis_by_sat, avail, t, metrics,
+                                         backlog)
 
             # 3) update readiness & drop sessions whose pass ended (LOS)
             for sid in self.sats:
@@ -325,12 +335,34 @@ class Simulator:
         signal, which folds in the mask, the steering limit and the SNR floor.
         """
         lead = self.cfg.handover_lead_s
-        if self.cfg.handover_mode != "forecast":
+        mode = self.cfg.handover_mode
+        if mode == "capacity":
+            ttl = self._look.time_to_los(sat.id, gid, t)   # -1 = not in contact
+            return 0.0 <= ttl <= lead
+        if mode != "forecast":
             return self._elev_at(sat, gid, t + lead) < self.stations[gid].elevation_mask_deg
         ttl = self._los_cache.time_to_los(sat.id, gid, t)
         return ttl is not None and ttl <= lead
 
-    def _proactive_handover(self, session, busy, vis_by_sat, avail, t, metrics):
+    def _handover_value(self, sid, v, t, backlog):
+        """How good is this handover destination?
+
+        "elevation"/"forecast" rank by instantaneous rate — which answers *when*
+        to leave a pass exactly, then picks *where* to go myopically. A station
+        showing a great rate right now may be about to set itself.
+
+        "capacity" ranks by the data the alternative can actually carry before
+        its own LOS, capped by what the satellite still has to send, with the
+        slew time already spent. Rate breaks ties: when two alternatives can
+        both drain the buffer, the faster one frees the beam sooner.
+        """
+        if self.cfg.handover_mode != "capacity":
+            return v.rate_bps
+        setup = self.stations[v.station_id].setup_time_s
+        bits = self._look.remaining_bits(sid, v.station_id, t + setup)
+        return (min(backlog.get(sid, 0.0), bits), v.rate_bps)
+
+    def _proactive_handover(self, session, busy, vis_by_sat, avail, t, metrics, backlog):
         """Before a satellite's current pass ends, move it to another already-visible
         station that has a free beam — a make-before-break switch, no interruption."""
         for sid, (gid, beam) in list(session.items()):
@@ -342,7 +374,7 @@ class Simulator:
                     if v.station_id != gid and (avail[v.station_id] - len(busy[v.station_id])) > 0]
             if not alts:
                 continue
-            best = max(alts, key=lambda v: v.rate_bps)
+            best = max(alts, key=lambda v: self._handover_value(sid, v, t, backlog))
             new_beam = self._first_free_beam(best.station_id, busy, avail[best.station_id])
             if new_beam is None:
                 continue
