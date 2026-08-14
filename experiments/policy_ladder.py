@@ -17,6 +17,9 @@ The ladder, in order of what each rule is allowed to know:
                   ordering keyed on deadline alone can see that.
   slack           DYNAMIC: least (deadline - earliest completion) first, re-quoted
                   against the live ledger after every booking
+  ratio           DYNAMIC: oppcost / volume — adds the cost side of the knapsack
+                  ratio, which is oppcost's one identified failure mode
+  w_avail         DYNAMIC: weight / capacity-still-available
   oppcost         DYNAMIC: weight x (volume / capacity still available to this
                   request before its own deadline). Highest first — the request
                   about to lose its opportunity, scaled by what it is worth.
@@ -129,7 +132,31 @@ def _score_oppcost(planner: Planner, r: dict, quote) -> tuple:
     return (0, -(r["weight"] * min(ratio, 1.0)))
 
 
-DYNAMIC = {"slack": _score_slack, "oppcost": _score_oppcost}
+def _score_ratio(planner: Planner, r: dict, quote) -> tuple:
+    """oppcost divided by volume — value x risk per Gbit consumed.
+
+    The obvious fix for oppcost's one failure, where it books a large request
+    and thereby displaces two smaller ones of equal weight: a greedy knapsack
+    rule should divide value by cost. It reorders correctly and still loses,
+    which is the point of keeping it here. See `_score_w_avail`.
+    """
+    if quote.shortfall_gbit > 1e-6:
+        return (1, 0.0)
+    avail = _quote(planner, r, BIG_GBIT).scheduled_gbit
+    risk = min(r["volume_gbit"] / max(avail, 1e-9), 1.0)
+    return (0, -(r["weight"] * risk / max(r["volume_gbit"], 1e-9)))
+
+
+def _score_w_avail(planner: Planner, r: dict, quote) -> tuple:
+    """weight / capacity-still-available — value per Gbit of opportunity spent."""
+    if quote.shortfall_gbit > 1e-6:
+        return (1, 0.0)
+    avail = _quote(planner, r, BIG_GBIT).scheduled_gbit
+    return (0, -(r["weight"] / max(avail, 1e-9)))
+
+
+DYNAMIC = {"slack": _score_slack, "oppcost": _score_oppcost,
+           "ratio": _score_ratio, "w_avail": _score_w_avail}
 
 
 def run_dynamic(cfg: dict, reqs: list, score_fn) -> dict:
