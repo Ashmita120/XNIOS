@@ -11,11 +11,9 @@ import { MoonIcon, SunIcon } from "./ui.js";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
-  { id: "map", label: "Map" },
-  { id: "resources", label: "Resources" },
   { id: "plan", label: "Plan" },
-  { id: "decision", label: "Decision" },
-  { id: "scenario", label: "Scenario" },
+  { id: "operate", label: "Operate" },
+  { id: "study", label: "Study" },
 ];
 
 export function Nav({ right }) {

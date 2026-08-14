@@ -1,26 +1,30 @@
 /* ==========================================================================
-   PLAN view — direction B.
+   PLAN view.
 
-   Scoped to `.xn-plan`. The B palette is a full theme change and the other
-   console sections have not been ported yet, so the tokens live on the wrapper
-   rather than :root and `styles.css` is untouched. When OPERATE and STUDY
-   follow, these move up to :root and the prefix goes away.
+   The whole console is direction B now, so the palette lives at :root and this
+   file carries only PLAN's own structure — the verdict band, hero readouts,
+   segmented meters and the arbitration table. Its `--p-*` names alias the
+   global tokens, which is what makes the light theme work here for free.
    ========================================================================== */
 
 .xn-plan {
-  --p-bg: #040706;
-  --p-panel: #080d0b;
-  --p-panel-2: #0c1310;
-  --p-panel-3: #111a16;
-  --p-line: #16211b;
-  --p-line-2: #223328;
-  --p-dim: #4a6f5c;
-  --p-mid: #7ea894;
-  --p-fg: #dff0e6;
-  --p-accent: #16d47b;
-  --p-accent-2: #0e8a51;
-  --p-warn: #e0b341;
-  --p-crit: #ff6b6b;
+  /* The palette now lives at :root — the whole console is direction B — so
+     these alias rather than redefine. PLAN keeps its own names because its
+     surface stack is one step deeper than the rest of the page, and it means
+     the light theme works here too without a second set of overrides. */
+  --p-bg: var(--bg);
+  --p-panel: var(--bg-2);
+  --p-panel-2: var(--bg-2);
+  --p-panel-3: var(--bg-3);
+  --p-line: var(--line);
+  --p-line-2: var(--line-2);
+  --p-dim: var(--mute);
+  --p-mid: var(--dim);
+  --p-fg: var(--fg);
+  --p-accent: var(--accent);
+  --p-accent-2: var(--accent-2);
+  --p-warn: var(--st-warn);
+  --p-crit: var(--st-crit);
 
   --p-micro: 9.5px;
   --p-xs: 10.5px;
@@ -31,17 +35,12 @@
   --p1: 4px;  --p2: 8px;  --p3: 12px; --p4: 16px;
   --p5: 24px; --p6: 32px; --p7: 48px;
 
-  background: var(--p-bg);
   color: var(--p-fg);
   font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: var(--p-sm);
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
-  padding: var(--p5);
-  /* structure you feel rather than see */
-  background-image:
-    repeating-linear-gradient(0deg, rgba(22, 212, 123, 0.016) 0 1px, transparent 1px 40px),
-    repeating-linear-gradient(90deg, rgba(22, 212, 123, 0.016) 0 1px, transparent 1px 40px);
+  padding: 0;
 }
 .xn-plan *,
 .xn-plan *::before,
@@ -86,7 +85,6 @@
 .xn-plan .xhalf { display: grid; grid-template-columns: 1fr 1fr; gap: var(--p5); }
 @media (max-width: 940px) {
   .xn-plan .xcols, .xn-plan .xhalf { grid-template-columns: 1fr; }
-  .xn-plan { padding: var(--p4); }
 }
 
 /* --- form --------------------------------------------------------------- */
@@ -114,11 +112,11 @@
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--p-dim); cursor: pointer;
 }
 .xn-plan .xseg button:last-child { border-right: none; }
-.xn-plan .xseg button.on { background: var(--p-accent); color: #04120b; font-weight: 700; }
+.xn-plan .xseg button.on { background: var(--p-accent); color: var(--sel-fg); font-weight: 700; }
 
 .xn-plan .xbtn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--p2);
-  background: var(--p-accent); color: #04120b; border: 1px solid var(--p-accent);
+  background: var(--p-accent); color: var(--sel-fg); border: 1px solid var(--p-accent);
   padding: var(--p2) var(--p4); font-family: inherit; font-size: var(--p-sm);
   font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
 }
@@ -148,16 +146,16 @@
   display: flex; align-items: center; gap: var(--p3); flex-wrap: wrap;
   padding: var(--p3) var(--p4); margin: calc(var(--p4) * -1) calc(var(--p4) * -1) var(--p4);
   border-bottom: 1px solid var(--p-line-2);
-  background: linear-gradient(90deg, rgba(22, 212, 123, 0.10), transparent 65%);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.10), transparent 65%);
 }
-.xn-plan .xverdict.warn { background: linear-gradient(90deg, rgba(224, 179, 65, 0.10), transparent 65%); }
-.xn-plan .xverdict.crit { background: linear-gradient(90deg, rgba(255, 107, 107, 0.10), transparent 65%); }
+.xn-plan .xverdict.warn { background: linear-gradient(90deg, rgba(var(--warn-rgb), 0.10), transparent 65%); }
+.xn-plan .xverdict.crit { background: linear-gradient(90deg, rgba(var(--crit-rgb), 0.10), transparent 65%); }
 .xn-plan .xverdict .tag {
   font-size: var(--p-md); font-weight: 700; letter-spacing: 0.12em;
-  color: var(--p-accent); text-shadow: 0 0 14px rgba(22, 212, 123, 0.45);
+  color: var(--p-accent); text-shadow: 0 0 14px rgba(var(--accent-rgb), 0.45);
 }
-.xn-plan .xverdict.warn .tag { color: var(--p-warn); text-shadow: 0 0 14px rgba(224, 179, 65, 0.4); }
-.xn-plan .xverdict.crit .tag { color: var(--p-crit); text-shadow: 0 0 14px rgba(255, 107, 107, 0.4); }
+.xn-plan .xverdict.warn .tag { color: var(--p-warn); text-shadow: 0 0 14px rgba(var(--warn-rgb), 0.4); }
+.xn-plan .xverdict.crit .tag { color: var(--p-crit); text-shadow: 0 0 14px rgba(var(--crit-rgb), 0.4); }
 .xn-plan .xverdict .meta {
   margin-left: auto; text-align: right; font-size: var(--p-micro);
   color: var(--p-dim); letter-spacing: 0.1em;
@@ -178,11 +176,11 @@
   font-style: normal; font-size: var(--p-md); font-weight: 400;
   color: var(--p-dim); margin-left: 3px;
 }
-.xn-plan .xhero.on .n { color: var(--p-accent); text-shadow: 0 0 18px rgba(22, 212, 123, 0.3); }
+.xn-plan .xhero.on .n { color: var(--p-accent); text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.3); }
 /* segmented because the quantity behind it is counted, not continuous */
 .xn-plan .xmeter { display: flex; gap: 2px; margin-top: var(--p2); }
 .xn-plan .xmeter i { flex: 1; height: 3px; background: var(--p-line-2); }
-.xn-plan .xmeter i.on { background: var(--p-accent); box-shadow: 0 0 5px rgba(22, 212, 123, 0.55); }
+.xn-plan .xmeter i.on { background: var(--p-accent); box-shadow: 0 0 5px rgba(var(--accent-rgb), 0.55); }
 
 /* --- checklist / prose -------------------------------------------------- */
 .xn-plan .xchk {
@@ -199,7 +197,7 @@
 }
 .xn-plan .xwhy li::marker { color: var(--p-accent-2); }
 .xn-plan .xerr {
-  border: 1px solid #3a1c1c; background: rgba(255, 107, 107, 0.06);
+  border: 1px solid var(--line-2); background: rgba(var(--crit-rgb), 0.06);
   color: var(--p-crit); padding: var(--p2) var(--p3);
   font-size: var(--p-sm); margin-top: var(--p3);
 }
@@ -215,7 +213,7 @@
 }
 .xn-plan .xcmp .n { font-size: var(--p-xl); font-weight: 300; line-height: 1; }
 .xn-plan .xcmp .n em { font-style: normal; font-size: var(--p-md); color: var(--p-dim); margin-left: 2px; }
-.xn-plan .xcmp > div.win .n { color: var(--p-accent); text-shadow: 0 0 18px rgba(22, 212, 123, 0.3); font-weight: 500; }
+.xn-plan .xcmp > div.win .n { color: var(--p-accent); text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.3); font-weight: 500; }
 .xn-plan .xcmp .d { font-size: var(--p-xs); color: var(--p-dim); margin-top: var(--p2); }
 
 /* --- table -------------------------------------------------------------- */
@@ -237,8 +235,8 @@
   padding: 2px 6px; border: 1px solid var(--p-line-2); color: var(--p-mid);
 }
 .xn-plan .xbadge.hi { color: var(--p-accent); border-color: var(--p-accent-2); }
-.xn-plan .xbadge.mid { color: var(--p-warn); border-color: #3d3418; }
-.xn-plan .xbadge.lo { color: var(--p-crit); border-color: #3a1c1c; }
+.xn-plan .xbadge.mid { color: var(--p-warn); border-color: var(--line-2); }
+.xn-plan .xbadge.lo { color: var(--p-crit); border-color: var(--line-2); }
 .xn-plan .xdel {
   background: transparent; border: none; color: var(--p-dim);
   font-family: inherit; font-size: var(--p-md); cursor: pointer; padding: 0 var(--p2);

@@ -16,47 +16,59 @@
 
 :root,
 body.theme-dark {
-  --bg: #08080a;
-  --bg-2: #0c0c0f;
-  --bg-rgb: 8, 8, 10;
-  --line: #1b1b20;
-  --line-2: #2a2a30;
-  --mute: #6b6b73;
-  --dim: #9a9aa2;
-  --fg: #f2f2f3;
-  --viz-rgb: 255, 255, 255;
-  --sel-bg: #ffffff;
-  --sel-fg: #000000;
+  --bg: #040706;
+  --bg-2: #0c1310;
+  --bg-3: #111a16;
+  --bg-rgb: 4, 7, 6;
+  --line: #16211b;
+  --line-2: #223328;
+  --mute: #4a6f5c;
+  --dim: #7ea894;
+  --fg: #dff0e6;
+  --viz-rgb: 223, 240, 230;
+  --sel-bg: #16d47b;
+  --sel-fg: #04120b;
 
-  /* the only colour in the system: operator severity, desaturated to sit
-     inside a monochrome design without shouting */
-  --st-ok: #6f9c78;
-  --st-warn: #b39056;
-  --st-crit: #b3625c;
+  /* one accent, and it means live / good / selected. The moment it also
+     means "heading" it stops meaning anything. */
+  --accent: #16d47b;
+  --accent-2: #0e8a51;
+  --accent-rgb: 22, 212, 123;
+  --warn-rgb: 224, 179, 65;
+  --crit-rgb: 255, 107, 107;
+  --st-ok: #16d47b;
+  --st-warn: #e0b341;
+  --st-crit: #ff6b6b;
 }
 
 body.theme-light {
-  --bg: #f4f4f5;
-  --bg-2: #ececee;
-  --bg-rgb: 244, 244, 245;
-  --line: #e0e0e4;
-  --line-2: #cdcdd3;
-  --mute: #8a8a92;
-  --dim: #3f3f46;
-  --fg: #0c0c0f;
-  --viz-rgb: 12, 12, 15;
-  --sel-bg: #0c0c0f;
+  --bg: #f1f5f2;
+  --bg-2: #e7ede9;
+  --bg-3: #dde6e0;
+  --bg-rgb: 241, 245, 242;
+  --line: #d3ded7;
+  --line-2: #b8ccbf;
+  --mute: #5c7a6a;
+  --dim: #2f4740;
+  --fg: #08130e;
+  --viz-rgb: 8, 19, 14;
+  --sel-bg: #0b8f52;
   --sel-fg: #ffffff;
 
-  --st-ok: #3f6b49;
-  --st-warn: #7d6023;
-  --st-crit: #8c3a34;
+  --accent: #0b8f52;
+  --accent-2: #077a44;
+  --accent-rgb: 11, 143, 82;
+  --warn-rgb: 138, 100, 16;
+  --crit-rgb: 191, 59, 50;
+  --st-ok: #0b8f52;
+  --st-warn: #8a6410;
+  --st-crit: #bf3b32;
 }
 
 :root {
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --pad: clamp(16px, 3vw, 40px);
-  --shell: 1320px;
+  --pad: clamp(14px, 1.8vw, 28px);
+  --shell: 1760px;
   --gap: 24px;
 }
 
@@ -77,12 +89,17 @@ body {
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: "Google Sans", system-ui, sans-serif;
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-weight: 400;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
   transition: background 0.6s var(--ease), color 0.6s var(--ease);
+  /* structure you feel rather than see — the instrument grid behind everything */
+  background-image:
+    repeating-linear-gradient(0deg, rgba(var(--accent-rgb), 0.016) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, rgba(var(--accent-rgb), 0.016) 0 1px, transparent 1px 40px);
 }
 
 ::selection {
@@ -99,7 +116,7 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--line-2);
-  border-radius: 999px;
+  border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--mute);
@@ -132,7 +149,7 @@ table {
 }
 
 code {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   color: var(--dim);
 }
 
@@ -143,7 +160,7 @@ code {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -167,7 +184,7 @@ code {
   overflow-x: auto;
   margin: 0 0 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 12px;
   font: inherit;
   white-space: pre-wrap;
@@ -244,7 +261,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 0.7em;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.28em;
@@ -262,7 +279,7 @@ code {
 }
 
 .label {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -270,23 +287,37 @@ code {
 }
 
 .num {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 
 .mono {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* the site's card: 1px hairline, 14px radius, subtle top-lit gradient */
 .panel {
+  position: relative;
   display: flex;
   min-height: 0;
   flex-direction: column;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--bg-2), transparent);
+  border-radius: 0;
+  background: var(--bg-2);
 }
+/* corner ticks mark the panel edge without a heavier border */
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+  border-color: var(--line-2);
+  border-style: solid;
+}
+.panel::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+.panel::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
 .panel-head {
   display: flex;
   flex-wrap: wrap;
@@ -323,7 +354,7 @@ code {
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 0;
   background: var(--line);
 }
 .grid-hair > * {
@@ -339,13 +370,13 @@ code {
   height: 6px;
   width: 100%;
   overflow: hidden;
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--line);
 }
 .meter > i {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--fg);
   transition: width 0.6s var(--ease);
 }
@@ -355,9 +386,9 @@ code {
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 9px 18px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px;
   letter-spacing: 0.08em;
   color: var(--fg);
@@ -387,9 +418,9 @@ code {
   align-items: center;
   gap: 6px;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: 0;
   padding: 4px 10px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -404,7 +435,7 @@ code {
   justify-content: center;
   padding: 0 24px;
   text-align: center;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -424,7 +455,7 @@ code {
   border-bottom: none;
 }
 .row-k {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -432,7 +463,7 @@ code {
 }
 .row-v {
   min-width: 0;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   text-align: right;
@@ -453,7 +484,7 @@ code {
   margin-top: 16px;
 }
 .stat-value {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: clamp(1.7rem, 3.2vw, 2.5rem);
   font-weight: 500;
@@ -461,7 +492,7 @@ code {
   letter-spacing: -0.02em;
 }
 .stat-unit {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--mute);
@@ -471,7 +502,7 @@ code {
 }
 .stat-sub {
   margin-top: 12px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   line-height: 1.35;
   color: var(--mute);
@@ -489,10 +520,10 @@ code {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   padding: 8px 16px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px;
   color: var(--fg);
   outline: none;
@@ -563,7 +594,7 @@ code {
 .nav-sub {
   margin-left: 8px;
   display: none;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.2em;
@@ -577,7 +608,7 @@ code {
 .nav-link {
   position: relative;
   padding: 4px 0;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px;
   letter-spacing: 0.12em;
   color: var(--dim);
@@ -608,7 +639,7 @@ code {
   display: none;
   align-items: center;
   gap: 12px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -636,7 +667,7 @@ code {
 .shell {
   margin: 0 auto;
   max-width: var(--shell);
-  padding: 96px var(--pad) 96px;
+  padding: 40px var(--pad) 72px;
 }
 
 .section {
@@ -660,7 +691,7 @@ code {
 
 .section-note {
   max-width: 46ch;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   line-height: 1.6;
   color: var(--mute);
@@ -692,7 +723,7 @@ code {
   gap: 8px 32px;
   border-top: 1px solid var(--line);
   padding-top: 16px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -706,7 +737,7 @@ code {
   margin-top: 80px;
   border-top: 1px solid var(--line);
   padding-top: 24px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -767,7 +798,7 @@ code {
   align-items: center;
   gap: 8px 16px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 10px 18px;
   background: linear-gradient(180deg, var(--bg-2), transparent);
 }
@@ -777,9 +808,9 @@ code {
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 5px 14px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -796,7 +827,7 @@ code {
 }
 .timeline-readout {
   flex-shrink: 0;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 11px;
   text-transform: uppercase;
@@ -825,12 +856,12 @@ code {
 }
 .timeline-range::-webkit-slider-runnable-track {
   height: 2px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--line-2);
 }
 .timeline-range::-moz-range-track {
   height: 2px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--line-2);
 }
 .timeline-range::-webkit-slider-thumb {
@@ -878,7 +909,7 @@ code {
   shape-rendering: crispEdges;
 }
 .chart-tick {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   letter-spacing: 0.08em;
   fill: var(--mute);
@@ -892,10 +923,10 @@ code {
   z-index: 5;
   pointer-events: none;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--bg);
   padding: 8px 12px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   line-height: 1.6;
   color: var(--dim);
@@ -927,7 +958,7 @@ code {
   width: 100%;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 0;
   background: var(--bg-2);
   touch-action: none;
   cursor: grab;
@@ -980,10 +1011,10 @@ code {
   display: none;
   width: max-content;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--bg);
   padding: 6px 10px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   line-height: 1.6;
   color: var(--dim);
@@ -1050,7 +1081,7 @@ code {
   top: 50%;
   transform: translateY(-50%);
   white-space: nowrap;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -1069,7 +1100,7 @@ code {
   position: absolute;
   bottom: 16px;
   left: 20px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -1083,7 +1114,7 @@ code {
   position: absolute;
   right: 20px;
   top: 16px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -1129,12 +1160,12 @@ code {
   display: flex;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--bg-2);
 }
 .map-filter button {
   padding: 5px 12px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -1159,7 +1190,7 @@ code {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--bg-2);
 }
 .map-zoom button {
@@ -1168,7 +1199,7 @@ code {
   width: 27px;
   align-items: center;
   justify-content: center;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 14px;
   color: var(--dim);
   transition: color 0.2s var(--ease);
@@ -1214,7 +1245,7 @@ code {
   margin-bottom: 6px;
 }
 .gs-row-val {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 12px;
 }
@@ -1224,7 +1255,7 @@ code {
 }
 .gs-row-sub {
   margin-top: 5px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1239,9 +1270,9 @@ code {
 }
 .chip-sm {
   border: 1px solid var(--line-2);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 2px 8px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 10px;
   color: var(--dim);
@@ -1252,7 +1283,7 @@ code {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 16px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1297,7 +1328,7 @@ code {
 .link-table td {
   border-bottom: 1px solid var(--line);
   padding: 8px 4px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 11px;
 }
@@ -1315,7 +1346,7 @@ code {
 }
 .link-summary {
   padding: 4px 4px 10px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -1326,7 +1357,7 @@ code {
 }
 .link-state {
   margin-left: 2px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -1393,7 +1424,7 @@ code {
   gap: 12px;
   border-bottom: 1px solid var(--line);
   padding: 8px 0;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
 }
 .event:last-child {
@@ -1437,9 +1468,9 @@ code {
 }
 .chip {
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 4px 10px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   color: var(--dim);
 }
@@ -1449,7 +1480,7 @@ code {
 
 .explain {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 0;
   padding: 16px;
 }
 .explain p {
@@ -1465,7 +1496,7 @@ code {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 20px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   color: var(--mute);
 }
@@ -1492,14 +1523,14 @@ code {
   font-size: 13px;
 }
 .ind-tag {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--mute);
 }
 .ind-score {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
 }
@@ -1525,7 +1556,7 @@ code {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   color: var(--mute);
 }
@@ -1534,7 +1565,7 @@ code {
 }
 .ind-note {
   margin-top: 6px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   font-style: italic;
   color: var(--mute);
@@ -1544,7 +1575,7 @@ code {
 }
 .health-notes p {
   margin-top: 8px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   line-height: 1.7;
   color: var(--mute);
@@ -1559,7 +1590,7 @@ code {
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 0;
   background: var(--line);
 }
 .preset {
@@ -1585,7 +1616,7 @@ code {
   font-weight: 500;
 }
 .preset-size {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -1622,7 +1653,7 @@ code {
   cursor: pointer;
   align-items: center;
   gap: 10px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -1633,7 +1664,7 @@ code {
   height: 18px;
   width: 32px;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
+  border-radius: 0;
   transition: all 0.3s var(--ease);
 }
 .switch-track.on {
@@ -1656,7 +1687,7 @@ code {
 }
 
 .note {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   line-height: 1.7;
   color: var(--mute);
@@ -1674,7 +1705,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -1764,7 +1795,7 @@ code {
   align-items: baseline;
   border-bottom: 1px solid var(--line);
   padding: 6px 0;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
 }
 .fc-row:last-child {
@@ -1792,7 +1823,7 @@ code {
 }
 .fc-note {
   margin-top: 12px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   line-height: 1.7;
   color: var(--mute);
@@ -1809,10 +1840,10 @@ code {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line-2);
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   padding: 8px 16px;
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px;
   color: var(--fg);
   outline: none;
@@ -1855,7 +1886,7 @@ code {
   color: var(--dim);
 }
 .check-mark {
-  font-family: "Google Sans", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   width: 12px;
   flex: 0 0 12px;
 }
@@ -1870,3 +1901,51 @@ code {
 .why li {
   margin-bottom: 4px;
 }
+
+
+/* -------------------------------------------------- view groups & heads */
+/* PLAN / OPERATE / STUDY. One scrolling page, but the three jobs are named and
+   separated, so every section belongs to something instead of floating in a
+   flat list of panels. */
+.viewgroup { margin-top: 72px; }
+.viewgroup:first-of-type { margin-top: 40px; }
+.viewhead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding-bottom: 10px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--line-2);
+}
+.viewhead .vname {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--fg);
+}
+.viewhead .vnote { font-size: 11px; color: var(--mute); letter-spacing: 0.04em; }
+.viewhead .vspace { flex: 1; }
+.viewhead .vcount {
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+
+/* Numbered section head. PLAN defines the same names under its own scope, so
+   all three views share one visual grammar. */
+.xhead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+.xidx { font-size: 9.5px; color: var(--accent-2); letter-spacing: 0.14em; font-weight: 600; }
+.xtitle { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--fg); }
+.xnote { margin-left: auto; font-size: 10.5px; color: var(--mute); letter-spacing: 0.04em; }
+
+/* first section in a view group sits directly under the view rule */
+.section.flush { padding-top: 0; border-top: none; margin-top: 0; }
