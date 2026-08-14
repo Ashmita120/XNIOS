@@ -99,6 +99,7 @@ class DataObjectIn(BaseModel):
 class RequestIn(BaseModel):
     """What a user actually supplies. Nothing here describes the network."""
 
+    request_id: str | None = None
     satellite_id: str
     data_volume_gbit: float | None = Field(None, gt=0)
     data_object_id: str | None = None
@@ -109,18 +110,38 @@ class RequestIn(BaseModel):
     t_now: float = 0.0
 
     def to_request(self) -> CommRequest:
+        kw = dict(
+            satellite_id=self.satellite_id,
+            customer_id=self.customer_id,
+            data_volume_gbit=self.data_volume_gbit,
+            data_object_id=self.data_object_id,
+            timing=self.timing,
+            deadline_s=self.deadline_s,
+            priority=self.priority,
+        )
+        if self.request_id:
+            kw["request_id"] = self.request_id
         try:
-            return CommRequest(
-                satellite_id=self.satellite_id,
-                customer_id=self.customer_id,
-                data_volume_gbit=self.data_volume_gbit,
-                data_object_id=self.data_object_id,
-                timing=self.timing,
-                deadline_s=self.deadline_s,
-                priority=self.priority,
-            )
+            return CommRequest(**kw)
         except ValueError as e:
             raise HTTPException(422, str(e))
+
+
+class BatchIn(BaseModel):
+    """Several requests competing for the same network.
+
+    `commit` defaults to False: the batch is planned against the live ledger and
+    then rolled back, so a caller can compare policies — or simply see what
+    would happen — without consuming anything. That keeps the quote/confirm
+    separation that a single request already has, which matters more here, not
+    less: a batch books several bookings at once.
+    """
+
+    requests: list[RequestIn] = Field(..., min_length=1, max_length=200)
+    policy: str = "oppcost"
+    allow_partial: bool = True
+    commit: bool = False
+    t_now: float = 0.0
 
 
 # ------------------------------------------------------------------ routes
@@ -167,6 +188,56 @@ def quote(req: RequestIn) -> dict:
         raise HTTPException(404, str(e))
     _STATE["quotes"][plan.request_id] = plan
     return plan.to_dict()
+
+
+@router.post("/batch")
+def batch(req: BatchIn) -> dict:
+    """Plan several competing requests together.
+
+    This is where a tier actually arbitrates. `oppcost` scores every unbooked
+    request by weight x (volume / capacity still available before its deadline)
+    and re-scores after every booking, so a high-tier request whose opportunity
+    is about to close outranks one that can still be served later. `fcfs` books
+    in submission order, which is what a sequence of single requests does today.
+    """
+    p = _planner()
+    if req.policy not in p.BATCH_POLICIES:
+        raise HTTPException(422, f"policy must be one of {list(p.BATCH_POLICIES)}")
+
+    saved = list(p.commitments)                  # rollback point for a dry run
+    try:
+        plans = p.plan_batch([r.to_request() for r in req.requests],
+                             t_now=req.t_now, policy=req.policy,
+                             allow_partial=req.allow_partial)
+    except KeyError as e:
+        p.commitments = saved
+        raise HTTPException(404, str(e))
+
+    w_total = sum(pl.priority for pl in plans) or 1
+    met = [pl for pl in plans if pl.shortfall_gbit <= 1e-6 and pl.schedule]
+    summary = {
+        "policy": req.policy,
+        "requests": len(plans),
+        "fully_met": len(met),
+        "partial": sum(1 for pl in plans
+                       if pl.schedule and pl.shortfall_gbit > 1e-6),
+        "rejected": sum(1 for pl in plans if not pl.schedule),
+        "requested_gbit": sum(pl.data_volume_gbit for pl in plans),
+        "scheduled_gbit": sum(pl.scheduled_gbit for pl in plans),
+        # the objective the policy is actually optimising
+        "weighted_completion": sum(pl.priority for pl in met) / w_total,
+        "committed": req.commit,
+    }
+
+    if req.commit:
+        for pl in plans:
+            _STATE["quotes"][pl.request_id] = pl
+    else:
+        p.commitments = saved
+
+    return {"summary": summary,
+            "booked_order": [pl.request_id for pl in plans],
+            "plans": [pl.to_dict() for pl in plans]}
 
 
 @router.post("/{request_id}/accept")
