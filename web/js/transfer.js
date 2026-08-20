@@ -56,9 +56,30 @@ const Row = ({ k, v, u, tone }) => html`
   </div>
 `;
 
-/** One lane per station, one bar per booked window, against a shared span. */
-function PassTimeline({ commitments, now }) {
+/** Cumulative delivered at time `t`, from the run history. */
+function deliveredAt(history, t) {
+  let v = 0;
+  for (const p of history) {
+    if (p.t > t) break;
+    v = p.delivered_gbit;
+  }
+  return v;
+}
+
+/**
+ * One lane per station, one bar per booked window, against a shared span.
+ *
+ * After a run, each bar is marked by whether data actually moved through it.
+ * A booked window can go unused: the planner quotes at NOMINAL transmit power
+ * while the engine runs an adaptive allocator that can push higher, so a
+ * transfer often finishes before its later reservations open. Showing the
+ * booking and the outcome as the same thing made that look like an error.
+ */
+function PassTimeline({ commitments, now, history = [] }) {
   if (!commitments.length) return html`<div class="xempty">nothing booked</div>`;
+  const ran = history.length > 1;
+  const moved = (c) =>
+    !ran || deliveredAt(history, c.t_end) - deliveredAt(history, c.t_start) > 0.01;
   const t1 = Math.max(...commitments.map((c) => c.t_end)) * 1.05 || 1;
   const pct = (t) => `${(t / t1) * 100}%`;
   const stations = [...new Set(commitments.map((c) => c.station))].sort();
@@ -79,9 +100,11 @@ function PassTimeline({ commitments, now }) {
                       key=${i}
                       class=${`gantt-bar ${now !== null && now >= c.t_end ? "done" : ""} ${
                         now !== null && now >= c.t_start && now < c.t_end ? "live" : ""
-                      }`}
+                      } ${!moved(c) ? "unused" : ""}`}
                       style=${{ left: pct(c.t_start), width: pct(c.t_end - c.t_start) }}
-                      title=${`${c.request_id} · ${c.gbit.toFixed(2)} Gbit`}
+                      title=${`${c.request_id} · ${c.gbit.toFixed(2)} Gbit reserved · ${
+                        moved(c) ? "used" : "not needed"
+                      }`}
                     >
                       <span>${c.gbit.toFixed(1)}G</span>
                     </div>
@@ -93,6 +116,14 @@ function PassTimeline({ commitments, now }) {
           </div>
         `,
       )}
+      ${ran &&
+      commitments.some((c) => !moved(c)) &&
+      html`<div class="gantt-note">
+        ${commitments.filter((c) => !moved(c)).length} reserved window(s) were not
+        needed — the transfer finished early. The plan quotes at nominal transmit
+        power; execution runs an adaptive allocator that can beat it. Release them
+        in PLAN to give the capacity back.
+      </div>`}
       <div class="gantt-lane axis">
         <div class="gantt-name"></div>
         <div class="gantt-track">
@@ -266,7 +297,9 @@ export function TransferConsole({ ledger, run, frame, history = [], links = [], 
       <!-- ------------------------------------------------------------ 02 -->
       <section class="xsec">
         <${Head} idx="02" title="Pass timeline" note="when your data goes down, and from where" />
-        <div class="xpanel"><${PassTimeline} commitments=${commitments} now=${now} /></div>
+        <div class="xpanel">
+            <${PassTimeline} commitments=${commitments} now=${now} history=${history} />
+          </div>
       </section>
 
       <!-- ------------------------------------------------------------ 03 -->

@@ -320,3 +320,13 @@
 .xn-plan .curve-legend i.k-target { border-top: 1px dashed var(--p-mid); }
 
 .xn-plan .res-card.idle { opacity: 0.55; border-style: dashed; }
+
+.xn-plan .gantt-bar.unused {
+  background: transparent; border: 1px dashed var(--p-line-2);
+  border-left: 2px solid var(--p-mid); opacity: 0.7;
+}
+.xn-plan .gantt-bar.unused span { color: var(--p-dim); font-weight: 400; }
+.xn-plan .gantt-note {
+  margin-top: var(--p2); padding-top: var(--p2); border-top: 1px solid var(--p-line);
+  font-size: var(--p-xs); color: var(--p-dim); line-height: 1.7;
+}
