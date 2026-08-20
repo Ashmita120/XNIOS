@@ -147,6 +147,12 @@ function Console() {
     }
   }
 
+  // A finished plan run reconciles its ledger — windows the transfer turned out
+  // not to need are released — so the ledger must be re-read once it lands.
+  useEffect(() => {
+    if (operator && run && run.status === "done") refreshLedger();
+  }, [operator, run && run.run_id, run && run.status]);
+
   // Playback scrubbing (engineer only — an operator watches their own execution)
   const [scrub, setScrub] = useState(null);
   const [scrubFrame, setScrubFrame] = useState(null);

@@ -51,9 +51,11 @@ class Run:
     summary: dict | None = None
     total_steps: int = 0
     subscribers: list = field(default_factory=list)   # list[queue-like]
+    notes: dict = field(default_factory=dict)   # anything the caller wants surfaced
     # injected world/decision-maker for a plan run; None = build from config
     _scenario_fn: object = None
     _scheduler_fn: object = None
+    _on_done: object = None
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     # -- read side ---------------------------------------------------------
@@ -81,6 +83,7 @@ class Run:
             "progress": round(self.progress, 4),
             "policy": self.policy,
             "summary": self.summary,
+            "notes": self.notes,
             "meta": _meta_dict(meta),
         }
 
@@ -151,7 +154,8 @@ class RunStore:
 
     def start(self, preset: str, config: dict, policy: dict,
               pace_ms: float = 0.0, capture=None,
-              scenario_fn=None, scheduler_fn=None, kind: str = "scenario") -> Run:
+              scenario_fn=None, scheduler_fn=None, kind: str = "scenario",
+              on_done=None) -> Run:
         """Start a run.
 
         `scenario_fn` / `scheduler_fn` let a caller inject the world and the
@@ -163,7 +167,8 @@ class RunStore:
         run.
 
         `kind` marks which it is, so the console can tell an operator's own
-        execution apart from an engineering scenario.
+        execution apart from an engineering scenario. `on_done(run)` fires once
+        the worker finishes, which is how a plan run reconciles its ledger.
         """
         run_id = uuid.uuid4().hex[:12]
         sim_cfg = config.get("sim", {})
@@ -173,6 +178,7 @@ class RunStore:
                                         / sim_cfg.get("dt_s", 5))))
         run._scenario_fn = scenario_fn
         run._scheduler_fn = scheduler_fn
+        run._on_done = on_done
         with self._lock:
             self.runs[run_id] = run
             if len(self.runs) > self.max_runs:      # evict the oldest finished run
@@ -217,6 +223,11 @@ class RunStore:
             traceback.print_exc()
         finally:
             run.finished = time.time()
+            if run._on_done:
+                try:
+                    run._on_done(run)
+                except Exception:                  # a hook must never fail a run
+                    traceback.print_exc()
             run._publish(None)                     # sentinel: stream complete
 
 

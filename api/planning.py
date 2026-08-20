@@ -28,7 +28,8 @@ from pydantic import BaseModel, Field
 
 from xnios.config import scenario_from_config
 from xnios.execution import (PlanScheduler, execution_duration_s,
-                             execution_scenario, promised_by_satellite)
+                             execution_scenario, promised_by_satellite,
+                             surplus_commitments)
 from xnios.planner import (Planner, Customer, DataObject, CommRequest,
                            TimingIntent, CommPlan)
 
@@ -296,6 +297,30 @@ def execute(req: ExecuteIn) -> dict:
     steps = max(1, int(round(sim["duration_s"] / dt)))
     pace_ms = min(req.pace_ms, (WALL_BUDGET_S * 1000.0) / steps)
 
+    def reconcile(run) -> None:
+        """Give back capacity the transfer turned out not to need.
+
+        A booked window through which nothing moved is capacity no one used and
+        no one else could book. Releasing it on completion is what a booking
+        system should do — the alternative is an operator manually noticing.
+
+        Only on a clean finish: an errored or truncated run has windows that
+        were never attempted, and those are still owed.
+        """
+        if run.status != "done":
+            return
+        surplus = surplus_commitments(commitments, run.records)
+        if not surplus:
+            return
+        keep = {id(c) for c in surplus}
+        p.commitments = [c for c in p.commitments if id(c) not in keep]
+        run.notes["released"] = [
+            {"request_id": c.request_id, "station": c.station,
+             "t_start": c.t_start, "t_end": c.t_end, "gbit": c.gbit}
+            for c in surplus
+        ]
+        run.notes["released_gbit"] = sum(c.gbit for c in surplus)
+
     base = p.scn
     run = STORE.start(
         preset=_STATE["preset"], config=config,
@@ -304,6 +329,7 @@ def execute(req: ExecuteIn) -> dict:
         pace_ms=pace_ms, kind="plan",
         scenario_fn=lambda: execution_scenario(base, commitments),
         scheduler_fn=lambda: PlanScheduler(commitments),
+        on_done=reconcile,
     )
     promised = promised_by_satellite(commitments)
     return {**run.info(),

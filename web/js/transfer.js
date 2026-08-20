@@ -75,7 +75,7 @@ function deliveredAt(history, t) {
  * transfer often finishes before its later reservations open. Showing the
  * booking and the outcome as the same thing made that look like an error.
  */
-function PassTimeline({ commitments, now, history = [] }) {
+function PassTimeline({ commitments, now, history = [], released = [] }) {
   if (!commitments.length) return html`<div class="xempty">nothing booked</div>`;
   const ran = history.length > 1;
   const moved = (c) =>
@@ -116,13 +116,13 @@ function PassTimeline({ commitments, now, history = [] }) {
           </div>
         `,
       )}
-      ${ran &&
-      commitments.some((c) => !moved(c)) &&
+      ${released.length > 0 &&
       html`<div class="gantt-note">
-        ${commitments.filter((c) => !moved(c)).length} reserved window(s) were not
-        needed — the transfer finished early. The plan quotes at nominal transmit
-        power; execution runs an adaptive allocator that can beat it. Release them
-        in PLAN to give the capacity back.
+        <b>${released.length} window(s) released</b> —
+        ${released.map((r) => `${r.station} T+${clock(r.t_start)} (${r.gbit.toFixed(2)} Gbit)`).join(", ")}.
+        The transfer finished before these opened, so the capacity went back to the
+        network and the quota was not charged. The plan quotes at nominal transmit
+        power; execution runs an adaptive allocator that can beat it.
       </div>`}
       <div class="gantt-lane axis">
         <div class="gantt-name"></div>
@@ -259,6 +259,7 @@ export function TransferConsole({ ledger, run, frame, history = [], links = [], 
   const myLinks = links.filter((l) => booked.has(l.sat_id));
   const myEvents = events.filter((e) => booked.has(e.sat_id));
   const sum = (run && run.summary) || null;
+  const released = (run && run.notes && run.notes.released) || [];
 
   return html`
     <div class="xn-plan">
@@ -298,7 +299,8 @@ export function TransferConsole({ ledger, run, frame, history = [], links = [], 
       <section class="xsec">
         <${Head} idx="02" title="Pass timeline" note="when your data goes down, and from where" />
         <div class="xpanel">
-            <${PassTimeline} commitments=${commitments} now=${now} history=${history} />
+            <${PassTimeline} commitments=${commitments} now=${now} history=${history}
+                             released=${released} />
           </div>
       </section>
 
