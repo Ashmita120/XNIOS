@@ -140,7 +140,14 @@ class Decision(str, Enum):
 
 @dataclass
 class PlanWindow:
-    """One booked slice of one contact."""
+    """One booked slice of one contact.
+
+    `t_start`/`t_end` bound the SLICE — when the transfer starts and when it has
+    moved what this window owes it. That is usually shorter than the contact
+    itself, because a request that needs 67 s of a 257 s pass books 67 s and
+    leaves the rest for someone else. `pass_t_rise`/`pass_t_set` carry the
+    containing contact, so the two are never confused for one another.
+    """
 
     station: str
     t_start: float
@@ -148,14 +155,23 @@ class PlanWindow:
     deliverable_gbit: float
     peak_elev_deg: float
     contended: bool = False          # capacity was reduced by existing commitments
+    pass_t_rise: float = 0.0
+    pass_t_set: float = 0.0
 
     @property
     def duration_s(self) -> float:
+        """How long the transfer occupies this contact."""
         return self.t_end - self.t_start
+
+    @property
+    def contact_s(self) -> float:
+        """How long the contact itself lasts, booked or not."""
+        return self.pass_t_set - self.pass_t_rise
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["duration_s"] = self.duration_s
+        d["contact_s"] = self.contact_s
         return d
 
 
@@ -496,7 +512,8 @@ class Planner:
             plan.schedule.append(PlanWindow(
                 station=p.station_id, t_start=t_start, t_end=t_done,
                 deliverable_gbit=took, peak_elev_deg=p.peak_elev_deg,
-                contended=contended or len(usable) != len(free)))
+                contended=contended or len(usable) != len(free),
+                pass_t_rise=p.t_rise, pass_t_set=p.t_set))
             sat_busy.append((t_start, t_done))
             remaining -= took
 

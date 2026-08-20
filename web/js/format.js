@@ -37,9 +37,17 @@ export function pct(v, digits = 0) {
 }
 
 /** Simulated seconds -> mm:ss, matching how an operator reads a pass. */
+/**
+ * Elapsed time. Rolls over to hours — without it a next-contact 8.5 hours away
+ * rendered as "510:53", which reads as eight and a half minutes to anyone who
+ * does not stop to divide.
+ */
 export function clock(s) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
+  const t = Math.max(0, Math.floor(s || 0));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const sec = t % 60;
+  if (h) return `${h}h ${String(m).padStart(2, "0")}m`;
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 

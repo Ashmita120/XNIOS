@@ -135,7 +135,10 @@ function PlanPanel({ plan, booked, busy, onAccept, onRelease }) {
         <div>
           <${Row} k="Station" v=${w.station} tone="accent" />
           <${Row} k="Start" v=${`T+${clock(w.t_start)}`} />
-          <${Row} k="Window" v=${w.duration_s.toFixed(0)} u="s" />
+          ${/* Two different things that were both labelled "Window": how long the
+                transfer occupies the contact, and how long the contact lasts. */ null}
+          <${Row} k="Booked for" v=${w.duration_s.toFixed(0)} u="s" />
+          <${Row} k="Contact lasts" v=${(w.contact_s || w.duration_s).toFixed(0)} u="s" />
           <${Row} k="Contacts" v=${plan.schedule.length} />
           <${Row} k="Requested" v=${g1(plan.data_volume_gbit)} u="Gbit" />
           <${Row} k="Shortfall" v=${g1(plan.shortfall_gbit)} u="Gbit"
