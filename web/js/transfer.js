@@ -117,30 +117,36 @@ function Resources({ links }) {
   if (!links.length) {
     return html`<div class="xempty">execute the plan to see the resources it used</div>`;
   }
-  // A link that never got a beam was visible but unused — an alternative the
-  // plan did not take. Worth showing (it explains the choice) but clearly
-  // separated from what actually carried data.
-  const used = (l) => l.beam !== null && l.beam !== undefined;
-  const sorted = [...links].sort((a, b) => Number(used(b)) - Number(used(a)));
+  // "Resources in use" means USED. A station that merely had line of sight is
+  // not a resource this request consumed, and listing it invites the obvious
+  // question of why a transfer served from Ahmedabad is showing Delhi.
+  //
+  // Read from the `served` snapshot, not the live record: by the time a run
+  // finishes the session has ended, so the current record reports beam:null for
+  // a link that carried the entire payload.
+  const served = links.filter((l) => l.ever_active && l.served);
+  if (!served.length) {
+    return html`<div class="xempty">execute the plan to see the resources it used</div>`;
+  }
 
   return html`
     <div class="res-grid">
-      ${sorted.map((l) => {
-        const on = used(l);
+      ${served.map((row) => {
+        const l = row.served;
         return html`
-          <div class=${on ? "res-card" : "res-card idle"} key=${l.key}>
+          <div class="res-card" key=${row.key}>
             <div class="xcap">
-              <span>${l.sat_id} → ${l.station_id}</span>
-              <span class="n">${on ? "SERVED" : "NOT USED"}</span>
+              <span>${row.sat_id} → ${row.station_id}</span>
+              <span class="n">SERVED</span>
             </div>
-            <${Row} k="Beam" v=${on ? `#${l.beam}` : html`<span class="muted">none formed</span>`} />
+            <${Row} k="Beam" v=${`#${l.beam}`} />
             ${/* The channel is only assigned when a station forms more than one
                   beam at once — with a single beam there is no co-channel
                   decision to make, which is the measured result, not a gap. */ null}
             <${Row}
               k="Channel"
               v=${l.channel === null || l.channel === undefined
-                ? html`<span class="muted">${on ? "single beam · no reuse" : "—"}</span>`
+                ? html`<span class="muted">single beam · no reuse</span>`
                 : `CH-${l.channel}`}
               tone=${l.channel === null || l.channel === undefined ? "" : "accent"}
             />
@@ -156,7 +162,7 @@ function Resources({ links }) {
                     v=${l.inr_db <= -100 ? html`<span class="muted">none</span>` : `${g1(l.inr_db)} dB`} />
             <${Row} k="Rain fade" v=${g1(l.rain_fade_db)} u="dB"
                     tone=${l.rain_fade_db > 1 ? "warn" : ""} />
-            <${Row} k="Peak rate" v=${bps(l.peak_rate_bps || l.rate_bps)} />
+            <${Row} k="Peak rate" v=${bps(row.peak_rate_bps || l.rate_bps)} tone="accent" />
           </div>
         `;
       })}

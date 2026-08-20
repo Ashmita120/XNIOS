@@ -179,6 +179,11 @@ function Console() {
   // A frame lists only the pairs visible at that instant, so a table bound
   // straight to it empties the moment a pass ends. Fold each frame into a
   // per-run registry instead: rows persist with their last known values.
+  //
+  // `served` keeps a snapshot from a step where the link was actually carrying
+  // a session. Without it the registry ends up holding the moment *after* the
+  // transfer finished — active:false, beam:null — so a link that moved the
+  // entire payload reports "never used", which is exactly wrong.
   const [links, setLinks] = useState([]);
   useEffect(() => setLinks([]), [activeId]);
   useEffect(() => {
@@ -193,6 +198,8 @@ function Console() {
         byKey.set(key, {
           ...l, key, inView: true, t_last: t,
           peak_rate_bps: Math.max(l.rate_bps, (old && old.peak_rate_bps) || 0),
+          ever_active: l.active || (old && old.ever_active) || false,
+          served: l.active ? { ...l } : (old && old.served) || null,
         });
       }
       return [...byKey.values()];
