@@ -242,3 +242,49 @@
   font-family: inherit; font-size: var(--p-md); cursor: pointer; padding: 0 var(--p2);
 }
 .xn-plan .xdel:hover { color: var(--p-crit); }
+
+
+/* --- pass timeline (operator) ------------------------------------------- */
+/* One lane per station, one bar per booked window, all against a shared span
+   so lanes are comparable. This replaces the world map for operators: a map
+   answers "where is everything", they asked "when is my pass". */
+.xn-plan .gantt { display: flex; flex-direction: column; gap: var(--p2); }
+.xn-plan .gantt-lane { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: var(--p3); }
+.xn-plan .gantt-name {
+  font-size: var(--p-xs); letter-spacing: 0.08em; color: var(--p-mid);
+  text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.xn-plan .gantt-track {
+  position: relative; height: 22px; background: var(--p-bg);
+  border: 1px solid var(--p-line);
+}
+.xn-plan .gantt-bar {
+  position: absolute; top: 2px; bottom: 2px; min-width: 3px;
+  background: var(--p-accent-2); border-left: 2px solid var(--p-accent);
+  display: flex; align-items: center; overflow: hidden;
+}
+.xn-plan .gantt-bar span {
+  font-size: var(--p-micro); color: var(--sel-fg); padding-left: 4px;
+  font-weight: 700; white-space: nowrap;
+}
+.xn-plan .gantt-bar.live { background: var(--p-accent); box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5); }
+.xn-plan .gantt-bar.done { opacity: 0.55; }
+.xn-plan .gantt-now {
+  position: absolute; top: -2px; bottom: -2px; width: 1px;
+  background: var(--p-fg); box-shadow: 0 0 6px var(--p-fg);
+}
+.xn-plan .gantt-lane.axis .gantt-track { height: 16px; background: none; border: none; }
+.xn-plan .gantt-tick {
+  position: absolute; top: 0; font-size: var(--p-micro);
+  color: var(--p-dim); transform: translateX(-50%); white-space: nowrap;
+}
+
+/* --- mode toggle -------------------------------------------------------- */
+.mode-toggle { display: flex; border: 1px solid var(--line-2); }
+.mode-toggle button {
+  background: transparent; border: none; border-right: 1px solid var(--line-2);
+  padding: 5px 12px; font-family: inherit; font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--mute); cursor: pointer;
+}
+.mode-toggle button:last-child { border-right: none; }
+.mode-toggle button.on { background: var(--accent); color: var(--sel-fg); font-weight: 700; }

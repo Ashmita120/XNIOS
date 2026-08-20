@@ -42,6 +42,7 @@ class Run:
     preset: str
     config: dict
     policy: dict
+    kind: str = "scenario"            # scenario (engineering) | plan (an executed booking)
     status: str = "queued"            # queued | running | done | error
     error: str | None = None
     created: float = field(default_factory=time.time)
@@ -50,6 +51,9 @@ class Run:
     summary: dict | None = None
     total_steps: int = 0
     subscribers: list = field(default_factory=list)   # list[queue-like]
+    # injected world/decision-maker for a plan run; None = build from config
+    _scenario_fn: object = None
+    _scheduler_fn: object = None
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     # -- read side ---------------------------------------------------------
@@ -65,6 +69,7 @@ class Run:
         meta = self.recorder.meta if self.recorder else None
         return {
             "run_id": self.run_id,
+            "kind": self.kind,
             "preset": self.preset,
             "name": self.config.get("name", self.preset),
             "status": self.status,
@@ -145,12 +150,29 @@ class RunStore:
         return self.runs.pop(run_id, None) is not None
 
     def start(self, preset: str, config: dict, policy: dict,
-              pace_ms: float = 0.0, capture=None) -> Run:
+              pace_ms: float = 0.0, capture=None,
+              scenario_fn=None, scheduler_fn=None, kind: str = "scenario") -> Run:
+        """Start a run.
+
+        `scenario_fn` / `scheduler_fn` let a caller inject the world and the
+        decision maker instead of building them from `config` and a policy
+        name. That is how a *booked plan* becomes a run: the planner supplies a
+        scenario carrying only the promised demand and a `PlanScheduler` that
+        follows the ledger, and everything downstream — telemetry, the frame
+        endpoint, the WebSocket — works unchanged because a plan run is just a
+        run.
+
+        `kind` marks which it is, so the console can tell an operator's own
+        execution apart from an engineering scenario.
+        """
         run_id = uuid.uuid4().hex[:12]
         sim_cfg = config.get("sim", {})
         run = Run(run_id=run_id, preset=preset, config=config, policy=policy,
+                  kind=kind,
                   total_steps=int(round(sim_cfg.get("duration_s", 1200)
                                         / sim_cfg.get("dt_s", 5))))
+        run._scenario_fn = scenario_fn
+        run._scheduler_fn = scheduler_fn
         with self._lock:
             self.runs[run_id] = run
             if len(self.runs) > self.max_runs:      # evict the oldest finished run
@@ -173,11 +195,14 @@ class RunStore:
     def _execute(run: Run) -> None:
         run.status = "running"
         try:
-            scn = scenario_from_config(run.config)
             cfg = sim_config_from_config(run.config)
+            scn = (run._scenario_fn() if run._scenario_fn
+                   else scenario_from_config(run.config))
             p = run.policy
+            sched = (run._scheduler_fn() if run._scheduler_fn
+                     else make_scheduler(p.get("scheduler", "fcfs/strongest")))
             sim = Simulator(
-                scn, make_scheduler(p.get("scheduler", "fcfs/strongest")), cfg,
+                scn, sched, cfg,
                 allocator=make_allocator(p.get("bandwidth_allocator", "equal")),
                 power_allocator=make_power_allocator(p.get("power_allocator", "fixed")),
                 freq_allocator=make_freq_allocator(p.get("freq_allocator", "coloring")),

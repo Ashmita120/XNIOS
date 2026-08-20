@@ -6,6 +6,7 @@
     GET    /api/plan/customers
     POST   /api/plan/objects            register a named payload
     POST   /api/plan                    QUOTE a request (books nothing)
+    POST   /api/plan/execute            RUN the booked ledger through the twin
     POST   /api/plan/{request_id}/accept   CONFIRM a quote (books capacity)
     DELETE /api/plan/{request_id}       release a booking
     GET    /api/plan/ledger             everything currently promised
@@ -26,14 +27,18 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from xnios.config import scenario_from_config
+from xnios.execution import (PlanScheduler, execution_duration_s,
+                             execution_scenario, promised_by_satellite)
 from xnios.planner import (Planner, Customer, DataObject, CommRequest,
                            TimingIntent, CommPlan)
 
 from . import presets as presets_mod
+from .store import STORE
 
 router = APIRouter(prefix="/api/plan", tags=["planning"])
 
 DEFAULT_PRESET = "india4-nominal"
+WALL_BUDGET_S = 25.0        # longest a paced plan execution may take to stream
 _STATE: dict = {"preset": None, "planner": None, "quotes": {}}
 
 
@@ -250,6 +255,63 @@ def batch(req: BatchIn) -> dict:
     return {"summary": summary,
             "booked_order": [pl.request_id for pl in plans],
             "plans": [pl.to_dict() for pl in plans]}
+
+
+class ExecuteIn(BaseModel):
+    pace_ms: float = Field(120.0, ge=0.0, le=1000.0)   # >0 = stream at a watchable rate
+
+
+@router.post("/execute")
+def execute(req: ExecuteIn) -> dict:
+    """Run the booked ledger through the twin.
+
+    This is the join the system was missing. Until now the planner booked
+    capacity and the simulator ran unrelated scenario presets, so an operator
+    console could only ever show someone else's run. Here the accepted plan
+    *becomes* the run: the world carries exactly the promised demand, and
+    `PlanScheduler` follows the ledger rather than applying a policy, so the
+    delivered total is attributable to the plan and nothing else.
+
+    Returns a normal run — telemetry, frames and the WebSocket all work
+    unchanged, because a plan run is just a run with `kind: "plan"`.
+    """
+    p = _planner()
+    if not p.commitments:
+        raise HTTPException(409, "nothing booked — accept a plan first")
+
+    commitments = list(p.commitments)
+    config = dict(presets_mod.all_presets()[_STATE["preset"]])
+    sim = dict(config.get("sim", {}))
+    dt = float(sim.get("dt_s", 5.0))
+    sim["duration_s"] = execution_duration_s(commitments, dt)
+    sim.setdefault("decision_interval_s", dt)
+    config["sim"] = sim
+    config["name"] = f"executed plan · {len({c.request_id for c in commitments})} request(s)"
+
+    # Pacing exists so the console reads as live, but a plan whose second pass is
+    # eight hours out is thousands of steps of dead time — at 120 ms each that is
+    # six minutes of watching nothing happen. Cap the total wall time instead of
+    # the per-step delay, so a short plan still streams and a long one does not
+    # hold the operator hostage.
+    steps = max(1, int(round(sim["duration_s"] / dt)))
+    pace_ms = min(req.pace_ms, (WALL_BUDGET_S * 1000.0) / steps)
+
+    base = p.scn
+    run = STORE.start(
+        preset=_STATE["preset"], config=config,
+        policy={"scheduler": "plan-follower", "bandwidth_allocator": "equal",
+                "power_allocator": "adaptive", "freq_allocator": "coloring"},
+        pace_ms=pace_ms, kind="plan",
+        scenario_fn=lambda: execution_scenario(base, commitments),
+        scheduler_fn=lambda: PlanScheduler(commitments),
+    )
+    promised = promised_by_satellite(commitments)
+    return {**run.info(),
+            "pace_ms": round(pace_ms, 2),
+            "promised_gbit": sum(promised.values()),
+            "promised_by_satellite": promised,
+            "requests": sorted({c.request_id for c in commitments}),
+            "windows": len(commitments)}
 
 
 @router.post("/{request_id}/accept")

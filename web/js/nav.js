@@ -9,14 +9,18 @@ import { useEffect, useState } from "preact/hooks";
 import { cn } from "./format.js";
 import { MoonIcon, SunIcon } from "./ui.js";
 
-const SECTIONS = [
-  { id: "overview", label: "Overview" },
+/* Sections differ by mode: an operator navigates their request, an engineer
+   navigates experiments. Keeping them separate is the point of the split. */
+const OPERATOR_SECTIONS = [
   { id: "plan", label: "Plan" },
+  { id: "transfer", label: "Transfer" },
+];
+const ENGINEER_SECTIONS = [
   { id: "operate", label: "Operate" },
   { id: "study", label: "Study" },
 ];
 
-export function Nav({ right }) {
+export function Nav({ right, mode, onMode }) {
   const [scrolled, setScrolled] = useState(false);
   const [dark, setDark] = useState(true);
 
@@ -36,18 +40,24 @@ export function Nav({ right }) {
       <div class="nav-inner">
         <div class="nav-brand">
           <span class="nav-dot"></span>
-          <span class="nav-name">ARCTROPY</span>
-          <span class="nav-sub">X-NioS Twin</span>
+          <span class="nav-name">X-NioS</span>
+          <span class="nav-sub">${mode === "engineer" ? "Engineering" : "Planner"}</span>
         </div>
 
         <nav class="nav-links">
-          ${SECTIONS.map(
+          ${(mode === "engineer" ? ENGINEER_SECTIONS : OPERATOR_SECTIONS).map(
             (s) => html`<a key=${s.id} class="nav-link" href=${`#${s.id}`}>${s.label}</a>`,
           )}
         </nav>
 
         <div class="nav-right">
           <div class="nav-status">${right}</div>
+          <div class="mode-toggle">
+            <button class=${mode === "operator" ? "on" : ""}
+                    onClick=${() => onMode("operator")}>Operator</button>
+            <button class=${mode === "engineer" ? "on" : ""}
+                    onClick=${() => onMode("engineer")}>Engineer</button>
+          </div>
           <button
             type="button"
             class="nav-toggle"

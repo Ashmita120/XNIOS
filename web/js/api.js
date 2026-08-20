@@ -54,6 +54,9 @@ export const api = {
       json("/api/plan/customers", { method: "POST", body: JSON.stringify(body) }),
     quote: (body) => json("/api/plan", { method: "POST", body: JSON.stringify(body) }),
     batch: (body) => json("/api/plan/batch", { method: "POST", body: JSON.stringify(body) }),
+    // run the booked ledger through the twin — the join between planning and
+    // execution, and the only telemetry an operator should ever see
+    execute: (body) => json("/api/plan/execute", { method: "POST", body: JSON.stringify(body || {}) }),
     accept: (id) => json(`/api/plan/${id}/accept`, { method: "POST" }),
     release: (id) => json(`/api/plan/${id}`, { method: "DELETE" }),
     ledger: () => json("/api/plan/ledger"),

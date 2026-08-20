@@ -333,7 +333,7 @@ const LedgerPanel = ({ ledger }) => html`
 `;
 
 // ======================================================================= view
-export function PlanningConsole() {
+export function PlanningConsole({ onLedgerChange }) {
   const [net, setNet] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [sat, setSat] = useState("");

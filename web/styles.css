@@ -1775,8 +1775,9 @@ code {
 }
 
 @media (min-width: 1280px) {
+  /* four tiles since the "AI recommendation" placeholder was removed */
   .grid-health {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
   .grid-charts {
     grid-template-columns: repeat(2, 1fr);
@@ -1964,3 +1965,31 @@ code {
 
 /* first section in a view group sits directly under the view rule */
 .section.flush { padding-top: 0; border-top: none; margin-top: 0; }
+
+
+/* ------------------------------------------------------------- masthead */
+/* Identity left, live state right, one rule under it. Replaces the marketing
+   hero: an instrument opens on its controls, not on a headline. */
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-2);
+}
+.mast-id { display: flex; align-items: baseline; gap: 12px; }
+.mast-name { font-size: 17px; font-weight: 700; letter-spacing: 0.2em; color: var(--fg); }
+.mast-sub {
+  font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute);
+}
+.mast-stats {
+  display: flex; align-items: baseline; gap: 24px; flex-wrap: wrap;
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute);
+}
+.mast-stats b { color: var(--fg); font-weight: 500; }
+
+/* two equal panels side by side — the second row under the map */
+.grid-pair { display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+@media (min-width: 900px) { .grid-pair { grid-template-columns: 1fr 1fr; } }

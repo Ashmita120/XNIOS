@@ -10,16 +10,13 @@
  */
 
 import { html } from "htm/preact";
-import { bps, healthColor, pct, titleCase } from "./format.js";
-import { Badge, Stat } from "./ui.js";
+import { bps, healthColor, titleCase } from "./format.js";
+import { Stat } from "./ui.js";
 
-const PLACEHOLDERS = [
-  "Network health",
-  "Throughput",
-  "Congestion",
-  "Failure risk",
-  "AI recommendation",
-];
+/* The "AI recommendation" tile is gone. It rendered "advisory pending" for a
+   decision engine the feasibility work closed — a promise the project decided
+   not to keep, so showing it was worse than showing nothing. */
+const PLACEHOLDERS = ["Network health", "Throughput", "Congestion", "Failure risk"];
 
 export function HealthHeader({ frame }) {
   if (!frame) {
@@ -35,9 +32,6 @@ export function HealthHeader({ frame }) {
   const cong = h.indicators.congestion;
   const risk = h.indicators.failure_risk;
   const avail = h.indicators.availability;
-  const dec = frame.record.decision;
-
-  const aiActive = dec && dec.source === "ai" && dec.rationale;
   const [thrValue, thrUnit] = bps(n.throughput_bps, 2).split(" ");
 
   return html`
@@ -72,35 +66,6 @@ export function HealthHeader({ frame }) {
         sub=${`${risk.factors.stations_down} down · ${risk.factors.beams_lost} beams lost · observed, not forecast`}
       />
 
-      <div class="stat">
-        <div style=${{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
-          <span class="label">AI recommendation</span>
-          <${Badge} tone=${aiActive ? "ok" : "neutral"}>${aiActive ? "active" : "phase 5"}<//>
-        </div>
-        ${aiActive
-          ? html`
-              <div class="stat-value-row" style=${{ fontSize: "15px", fontWeight: 500, lineHeight: 1.35 }}>
-                ${dec.rationale}
-              </div>
-              <div class="stat-sub">
-                ${Object.entries(dec.expected)
-                  .map(([k, v]) => `${titleCase(k)} ${v > 0 ? "+" : ""}${pct(v, 1)}`)
-                  .join(" · ")}
-              </div>
-            `
-          : html`
-              <div
-                class="stat-value-row"
-                style=${{ fontSize: "15px", fontWeight: 500, lineHeight: 1.35, color: "var(--dim)" }}
-              >
-                Advisory pending
-              </div>
-              <div class="stat-sub">
-                Running the operator's fixed configuration. The decision engine writes into${" "}
-                <span style=${{ color: "var(--dim)" }}>decision.rationale</span> once built.
-              </div>
-            `}
-      </div>
     </div>
   `;
 }

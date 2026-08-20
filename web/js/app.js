@@ -1,22 +1,22 @@
 /**
- * The operator console.
+ * The console — two products behind one shell.
  *
- * One scrolling page, three named jobs:
+ *   OPERATOR   PLAN (request → quote → accept) → TRANSFER (execute → telemetry)
+ *   ENGINEER   OPERATE (network telemetry) + STUDY (scenarios, policies, KPIs)
  *
- *   PLAN     ask the network for something — request in, plan out, capacity booked
- *   OPERATE  what the network is doing right now — status, segment, links, timeline
- *   STUDY    which configuration is better, and by how much
+ * The invariant that motivates the split: **nothing in the operator view may be
+ * driven by an unrelated scenario preset.** Every operator metric traces back to
+ * the accepted request and its execution, via POST /api/plan/execute. An
+ * operator should never have to learn that simulation presets exist.
  *
- * Sections used to be grouped by data type (map / resources / decision /
- * scenario), which is why the planner never sat anywhere sensible: it is an
- * *action* surface and everything around it was monitoring. Grouping by job
- * puts each panel somewhere it belongs.
+ * The engineer view keeps everything the research work produced — presets,
+ * policy grid, oracle comparison, KPI vector, health breakdown, CSV export. That
+ * material is valuable; the mistake was putting it on the same surface as the
+ * operator console.
  *
- * Every panel in OPERATE and STUDY is a *reader* of one telemetry stream.
- * Nothing there computes simulation state, which is what lets the same
- * components serve a live network, a replay, or a forecast. PLAN is the
- * exception and the only writer — it talks to /api/plan/* and shares no state
- * with runs.
+ * The mode is a toggle for now. The two views already read different runs and
+ * different endpoints, so promoting the engineer view to its own URL later is a
+ * routing change rather than a rebuild.
  */
 
 import { Fragment, render } from "preact";
@@ -26,7 +26,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "./api.js";
 import { bits, clock, pct } from "./format.js";
 import { useRun } from "./state.js";
-import { DownloadIcon, Eyebrow, Panel, Row } from "./ui.js";
+import { DownloadIcon, Panel, Row } from "./ui.js";
 import { Nav } from "./nav.js";
 import { HealthHeader } from "./health.js";
 import { NetworkMap } from "./map.js";
@@ -35,103 +35,152 @@ import { ContactSchedule, EventFeed, LinkMonitor, ResourceMonitor } from "./reso
 import { DecisionPanel, IndicatorBreakdown } from "./decision.js";
 import { RunControl } from "./control.js";
 import { PlanningConsole } from "./plan.js";
+import { TransferConsole } from "./transfer.js";
 import { TimeControl } from "./timeline.js";
 
 const KPI_ORDER = [
-  "delivered_gbit",
-  "completion_rate",
-  "sla_compliance",
-  "fairness",
-  "mean_wait_s",
-  "beam_utilization",
-  "energy_kj",
-  "gb_per_kj",
-  "sessions_interrupted",
-  "proactive_handovers",
+  "delivered_gbit", "completion_rate", "sla_compliance", "fairness",
+  "mean_wait_s", "beam_utilization", "energy_kj", "gb_per_kj",
+  "sessions_interrupted", "proactive_handovers",
 ];
-
 const FACES = ["network", "station", "link", "satellite", "event"];
 
-/** PLAN / OPERATE / STUDY — names the job a group of sections belongs to. */
-function ViewHead({ name, note, count }) {
-  return html`
-    <div class="viewhead">
-      <span class="vname">${name}</span>
-      <span class="vnote">${note}</span>
-      <span class="vspace"></span>
-      <span class="vcount">${count}</span>
-    </div>
-  `;
-}
+/** PLAN / TRANSFER / OPERATE / STUDY — names the job a group of sections owns. */
+const ViewHead = ({ name, note, count }) => html`
+  <div class="viewhead">
+    <span class="vname">${name}</span>
+    <span class="vnote">${note}</span>
+    <span class="vspace"></span>
+    ${count && html`<span class="vcount">${count}</span>`}
+  </div>
+`;
 
-/** Numbered section head — the same grammar PLAN uses inside its own scope. */
-function SecHead({ idx, title, note }) {
+/** Numbered section head — the same grammar PLAN and TRANSFER use. */
+const SecHead = ({ idx, title, note }) => html`
+  <div class="xhead">
+    <span class="xidx">${idx}</span>
+    <span class="xtitle">${title}</span>
+    ${note && html`<span class="xnote">${note}</span>`}
+  </div>
+`;
+
+/** Identity left, live state right. No prose — this is an instrument. */
+function Masthead({ net, ledger, run, connected }) {
+  const t = run && run.steps ? null : null;
   return html`
-    <div class="xhead">
-      <span class="xidx">${idx}</span>
-      <span class="xtitle">${title}</span>
-      ${note && html`<span class="xnote">${note}</span>`}
+    <div class="masthead">
+      <div class="mast-id">
+        <span class="mast-name">X-NioS</span>
+        <span class="mast-sub">communication planning &amp; orchestration</span>
+      </div>
+      <div class="mast-stats">
+        ${net &&
+        html`<span>NET <b>${net.preset}</b></span>
+          <span>${net.satellites.length} SAT · ${net.stations.length} GS</span>
+          <span>${net.contacts_precomputed} CONTACTS</span>`}
+        ${ledger &&
+        html`<span>LEDGER <b>${ledger.total_gbit.toFixed(1)} Gbit</b> / ${ledger.commitments.length}</span>`}
+        <span>
+          <span class="dotlive" style=${{ marginRight: "8px" }}></span>
+          <b>${connected ? "LIVE" : run ? run.status.toUpperCase() : "IDLE"}</b>
+          ${run && html` T+${clock((run.steps && t) || 0)}`}
+        </span>
+      </div>
     </div>
   `;
 }
 
 function Console() {
+  const [mode, setMode] = useState("operator");
+
+  // --- operator state: the network, the ledger, and the run that executed it
+  const [net, setNet] = useState(null);
+  const [ledger, setLedger] = useState(null);
+  const [planRunId, setPlanRunId] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [execErr, setExecErr] = useState(null);
+
+  // --- engineer state: scenario runs
   const [runId, setRunId] = useState(null);
   const [started, setStarted] = useState(null);
   const [focus, setFocus] = useState(null);
-  const { frame, history, info, connected } = useRun(runId);
 
-  // resume the newest run on load, so a page refresh does not lose the view
+  const operator = mode === "operator";
+  const activeId = operator ? planRunId : runId;
+  const { frame, history, info, connected } = useRun(activeId);
+  const run = info || (operator ? null : started);
+
   useEffect(() => {
+    api.plan.network().then(setNet).catch(() => undefined);
+    refreshLedger();
+  }, []);
+
+  // engineer mode resumes the newest *scenario* run, never a plan run
+  useEffect(() => {
+    if (operator || runId) return;
     api
       .runs()
       .then((rs) => {
-        if (rs.length) {
-          setRunId(rs[0].run_id);
-          setStarted(rs[0]);
+        const r = rs.find((x) => x.kind !== "plan");
+        if (r) {
+          setRunId(r.run_id);
+          setStarted(r);
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [operator]);
 
-  // Playback: `scrub` is null while following the live edge, otherwise the step
-  // being inspected. Every "current record" panel reads `shown`, not `frame`.
+  function refreshLedger() {
+    return api.plan.ledger().then(setLedger).catch(() => undefined);
+  }
+
+  async function execute() {
+    setBusy(true);
+    setExecErr(null);
+    try {
+      const r = await api.plan.execute({ pace_ms: 120 });
+      setPlanRunId(r.run_id);
+    } catch (e) {
+      setExecErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Playback scrubbing (engineer only — an operator watches their own execution)
   const [scrub, setScrub] = useState(null);
   const [scrubFrame, setScrubFrame] = useState(null);
   useEffect(() => {
     setScrub(null);
     setScrubFrame(null);
-  }, [runId]);
+  }, [activeId]);
   useEffect(() => {
-    if (scrub === null || !runId) return;
+    if (scrub === null || !activeId) return;
     let cancelled = false;
     api
-      .frame(runId, scrub)
+      .frame(activeId, scrub)
       .then((f) => !cancelled && setScrubFrame(f))
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [runId, scrub]);
+  }, [activeId, scrub]);
 
-  const run = info || started;
   const shown = scrub === null ? frame : scrubFrame || frame;
-  const net = shown && shown.record.network;
+  const netRec = shown && shown.record.network;
 
-  // keep a rolling event log across frames (each frame carries only its own)
   const [events, setEvents] = useState([]);
-  useEffect(() => setEvents([]), [runId]);
+  useEffect(() => setEvents([]), [activeId]);
   useEffect(() => {
     if (!frame || !frame.record.events.length) return;
     setEvents((prev) => [...prev, ...frame.record.events].slice(-200));
   }, [frame]);
 
-  // Same idea for links. A frame lists only the pairs visible at that instant,
-  // so a table bound straight to it empties itself the moment a pass ends. Fold
-  // each frame into a per-run registry instead: rows persist with their last
-  // known values, flagged in-view or not, plus the peak rate they reached.
+  // A frame lists only the pairs visible at that instant, so a table bound
+  // straight to it empties the moment a pass ends. Fold each frame into a
+  // per-run registry instead: rows persist with their last known values.
   const [links, setLinks] = useState([]);
-  useEffect(() => setLinks([]), [runId]);
+  useEffect(() => setLinks([]), [activeId]);
   useEffect(() => {
     if (!shown) return;
     const t = shown.record.t;
@@ -142,10 +191,7 @@ function Console() {
         const key = `${l.sat_id}|${l.station_id}`;
         const old = byKey.get(key);
         byKey.set(key, {
-          ...l,
-          key,
-          inView: true,
-          t_last: t,
+          ...l, key, inView: true, t_last: t,
           peak_rate_bps: Math.max(l.rate_bps, (old && old.peak_rate_bps) || 0),
         });
       }
@@ -156,6 +202,8 @@ function Console() {
   return html`
     <${Fragment}>
       <${Nav}
+        mode=${mode}
+        onMode=${setMode}
         right=${run &&
         html`<span>
           ${connected && html`<span class="dotlive" style=${{ marginRight: "8px" }}></span>`}
@@ -166,228 +214,205 @@ function Console() {
       />
 
       <main class="shell">
-        <!-- ---------------------------------------------------------- masthead -->
-        <section id="overview" class="animate-rise">
-          <${Eyebrow}>Physics-driven communication planning<//>
-          <h1 class="hero-title">Ask the network. Watch it work. Prove it was right.</h1>
-          <p class="hero-lead">
-            One request in, a plan out — station, timing, beam requirement and the capacity behind
-            it, all from exact orbital mechanics rather than a learned model. Below that, the live
-            network the plan executes on, and the experiments that decide which policy runs it.
-          </p>
+        <${Masthead} net=${net} ledger=${ledger} run=${run} connected=${connected} />
 
-          <div class="meta-row">
-            <span>
-              <span class="dotlive" style=${{ marginRight: "8px" }}></span>
-              <span class="on">${connected ? "live" : (run && run.status) || "idle"}</span>
-            </span>
-            <span>Records <span class="on">${(run && run.steps) || 0}</span>/${(run && run.total_steps) || 0}</span>
-            <span>Sim clock <span class="on">T+${clock((net && net.t) || 0)}</span></span>
-            <span>Schema <span class="on">${(shown && shown.record.schema_version) || "—"}</span></span>
-            ${run &&
-            run.meta &&
-            html`<span>
-              ${`${run.meta.n_satellites} sats · ${run.meta.n_stations} stations · ${run.meta.n_beams_total} beams`}
-            </span>`}
-          </div>
-        </section>
-
-        <!-- =============================================================== PLAN -->
-        <div class="viewgroup" id="plan">
-          <${ViewHead} name="PLAN" note="ask the network for something" count="3 sections" />
-          <${PlanningConsole} />
-        </div>
-
-        <!-- ============================================================ OPERATE -->
-        <div class="viewgroup" id="operate">
-          <${ViewHead} name="OPERATE" note="what the network is doing right now" count="4 sections" />
-
-          <section class="section flush">
-            <${SecHead} idx="01" title="Network status"
-                        note="the one glanceable band — everything below is detail" />
-            <${HealthHeader} frame=${shown} />
-            ${run &&
-            run.steps > 0 &&
-            html`<${TimeControl}
-              steps=${run.steps}
-              total=${run.total_steps}
-              value=${scrub === null ? run.steps - 1 : scrub}
-              live=${scrub === null}
-              t=${(net && net.t) || 0}
-              onScrub=${setScrub}
-              onLive=${() => setScrub(null)}
-            />`}
-          </section>
-
-          <section class="section">
-            <${SecHead} idx="02" title="Ground segment"
-                        note="stations, sub-satellite points and every committed beam" />
-            <div class="grid-map">
-              <div class="map-frame">
-                <${NetworkMap} frame=${shown} focus=${focus} />
+        ${operator
+          ? html`
+              <!-- ====================================================== PLAN -->
+              <div class="viewgroup" id="plan">
+                <${ViewHead} name="PLAN" note="ask the network for something" />
+                <${PlanningConsole} onLedgerChange=${refreshLedger} />
               </div>
-              <div class="stack">
-                <${Panel} title="Resource monitor" bodyClass="tight">
-                  <${ResourceMonitor} frame=${shown} onFocus=${setFocus} focus=${focus} />
-                <//>
-                <${Panel} title="Contact forecast — analytical" bodyClass="tight">
-                  <${ContactSchedule} frame=${shown} />
-                <//>
-                <${Panel} title="Events" bodyClass="tight">
-                  <${EventFeed} events=${events} />
-                <//>
-              </div>
-            </div>
-          </section>
 
-          <section class="section">
-            <${SecHead} idx="03" title="Links"
-                        note="per-link quality, and the network row behind it" />
-            <div class="grid-links">
-              <${Panel}
-                title="Link quality monitor"
-                bodyClass="tight-2"
-                action=${runId &&
-                html`<a class="export-link" href=${api.exportUrl(runId, "link")}>
-                  <${DownloadIcon} size=${12} /> link.csv
-                </a>`}
-              >
-                <${LinkMonitor} links=${links} />
-              <//>
-
-              <${Panel} title="Network row">
-                ${net
-                  ? html`<div>
-                      <${Row} k="Delivered" v=${bits(net.bits_delivered_total)} />
-                      <${Row} k="Queued" v=${bits(net.queue_bits)} />
-                      <${Row} k="Completed" v=${`${net.n_completed}/${net.n_sats}`} />
-                      <${Row} k="Waiting" v=${net.n_waiting} />
-                      <${Row} k="Beams transmitting" v=${`${net.beams_active} / ${net.beams_total}`} />
-                      <${Row}
-                        k="Beams available"
-                        v=${`${net.beams_available} / ${net.beams_total}`}
-                        accent=${net.beams_available < net.beams_total ? "var(--st-warn)" : undefined}
-                      />
-                      ${/* the two rows that explain an empty link table: no visible
-                            pair means the constellation is simply out of range */ null}
-                      <${Row}
-                        k="Visible pairs"
-                        v=${net.n_visible_pairs}
-                        accent=${net.n_visible_pairs === 0 ? "var(--st-warn)" : undefined}
-                      />
-                      <${Row} k="Sats with a link" v=${`${net.n_sats_with_link} / ${net.n_sats}`} />
-                      <${Row} k="Contention" v=${net.contention_ratio.toFixed(2)} />
-                      <${Row} k="Coverage" v=${pct(net.coverage)} />
-                      <${Row} k="Mean SINR" v=${`${net.mean_sinr_db.toFixed(1)} dB`} />
-                      <${Row} k="Radiated power" v=${`${net.power_w.toFixed(1)} W`} />
-                      <${Row} k="Energy" v=${`${(net.energy_j_total / 1e3).toFixed(2)} kJ`} />
-                      <${Row} k="Interruptions" v=${net.interruptions_total} />
-                      <${Row}
-                        k="Handovers"
-                        v=${`${net.handovers_total} (${net.proactive_handovers_total} proactive)`}
-                      />
-                      <${Row} k="Decision latency" v=${`${net.decision_ms.toFixed(3)} ms`} />
-                    </div>`
-                  : html`<div class="label">awaiting telemetry</div>`}
-              <//>
-            </div>
-          </section>
-
-          <section class="section">
-            <${SecHead} idx="04" title="Timeline"
-                        note="the same telemetry stream, across the whole run" />
-            <div class="grid-charts">
-              <${Panel} title="Throughput"><${ThroughputChart} data=${history} /><//>
-              <${Panel} title="Utilisation · beams / bandwidth / coverage">
-                <${UtilisationChart} data=${history} />
-              <//>
-              <${Panel} title="Backlog vs delivered"><${QueueChart} data=${history} /><//>
-              <${Panel} title="Health · congestion · failure risk">
-                <${HealthChart} data=${history} />
-              <//>
-            </div>
-          </section>
-        </div>
-
-        <!-- ============================================================== STUDY -->
-        <div class="viewgroup" id="study">
-          <${ViewHead} name="STUDY" note="which configuration is better, and by how much"
-                       count="2 sections" />
-
-          <section class="section flush">
-            <${SecHead} idx="01" title="Scenario"
-                        note="the four pluggable axes — scheduler × bandwidth × power × frequency" />
-            <div class="grid-scenario">
-              <${Panel} title="Configuration">
-                <${RunControl}
-                  current=${run}
-                  onStarted=${(r) => {
-                    setStarted(r);
-                    setRunId(r.run_id);
-                  }}
+              <!-- ================================================== TRANSFER -->
+              <div class="viewgroup" id="transfer">
+                <${ViewHead} name="TRANSFER" note="what the network is doing with your request" />
+                ${execErr && html`<div class="xn-plan"><div class="xerr">${execErr}</div></div>`}
+                <${TransferConsole}
+                  ledger=${ledger}
+                  run=${run}
+                  frame=${shown}
+                  busy=${busy}
+                  onExecute=${execute}
                 />
-              <//>
-              <${Panel} title="Active configuration"><${DecisionPanel} frame=${shown} /><//>
-            </div>
-          </section>
+              </div>
+            `
+          : html`
+              <!-- =================================================== OPERATE -->
+              <div class="viewgroup" id="operate">
+                <${ViewHead} name="OPERATE" note="the whole network, for engineering" count="4 sections" />
 
-          <section class="section">
-            <${SecHead} idx="02" title="Result"
-                        note="a KPI vector, never one score" />
-            <div class="grid-decision">
-              <${Panel}
-                title="Run summary"
-                action=${runId &&
-                html`<div class="export-links">
-                  ${FACES.map(
-                    (f) => html`<a key=${f} class="export-link" href=${api.exportUrl(runId, f)}>${f}</a>`,
-                  )}
-                </div>`}
-              >
-                ${run
-                  ? html`<div>
-                      <${Row} k="Run" v=${run.run_id} />
-                      <${Row} k="Scenario" v=${run.name} />
-                      <${Row} k="Status" v=${run.status} />
-                      <${Row} k="Scheduler" v=${run.policy.scheduler} />
-                      <${Row} k="Bandwidth" v=${run.policy.bandwidth_allocator} />
-                      <${Row} k="Power" v=${run.policy.power_allocator} />
-                      <${Row} k="Frequency" v=${run.policy.freq_allocator} />
-                      ${run.meta &&
-                      html`<${Fragment}>
-                        <${Row} k="Weather model" v=${run.meta.weather_model} />
-                        <${Row} k="Failures" v=${run.meta.dynamics ? "enabled" : "off"} />
-                        <${Row} k="Handover" v=${run.meta.handover ? "enabled" : "off"} />
-                        <${Row} k="Seed" v=${run.meta.seed === null ? "—" : run.meta.seed} />
-                      <//>`}
-                      ${run.summary &&
-                      html`<${Fragment}>
-                        <div class="label" style=${{ marginTop: "16px" }}>Final KPI vector</div>
-                        ${KPI_ORDER.filter((k) => run.summary[k] !== undefined).map(
-                          (k) => html`<${Row}
-                            key=${k}
-                            k=${k.replace(/_/g, " ")}
-                            v=${typeof run.summary[k] === "number"
-                              ? run.summary[k].toFixed(3)
-                              : String(run.summary[k])}
-                          />`,
+                <section class="section flush">
+                  <${SecHead} idx="01" title="Network status"
+                              note="the one glanceable band — everything below is detail" />
+                  <${HealthHeader} frame=${shown} />
+                  ${run &&
+                  run.steps > 0 &&
+                  html`<${TimeControl}
+                    steps=${run.steps}
+                    total=${run.total_steps}
+                    value=${scrub === null ? run.steps - 1 : scrub}
+                    live=${scrub === null}
+                    t=${(netRec && netRec.t) || 0}
+                    onScrub=${setScrub}
+                    onLive=${() => setScrub(null)}
+                  />`}
+                </section>
+
+                <section class="section">
+                  <${SecHead} idx="02" title="Ground segment"
+                              note="stations, sub-satellite points and every committed beam" />
+                  <div class="grid-map">
+                    <div class="map-frame">
+                      <${NetworkMap} frame=${shown} focus=${focus} />
+                    </div>
+                    <${Panel} title="Resource monitor" bodyClass="tight">
+                      <${ResourceMonitor} frame=${shown} onFocus=${setFocus} focus=${focus} />
+                    <//>
+                  </div>
+                  ${/* second row so the left column cannot run out under a
+                        taller right stack — the old layout left dead space */ null}
+                  <div class="grid-pair mt-6">
+                    <${Panel} title="Contact forecast — analytical" bodyClass="tight">
+                      <${ContactSchedule} frame=${shown} />
+                    <//>
+                    <${Panel} title="Events" bodyClass="tight">
+                      <${EventFeed} events=${events} />
+                    <//>
+                  </div>
+                </section>
+
+                <section class="section">
+                  <${SecHead} idx="03" title="Links"
+                              note="per-link quality, and the network row behind it" />
+                  <div class="grid-links">
+                    <${Panel}
+                      title="Link quality monitor"
+                      bodyClass="tight-2"
+                      action=${activeId &&
+                      html`<a class="export-link" href=${api.exportUrl(activeId, "link")}>
+                        <${DownloadIcon} size=${12} /> link.csv
+                      </a>`}
+                    >
+                      <${LinkMonitor} links=${links} />
+                    <//>
+
+                    <${Panel} title="Network row">
+                      ${netRec
+                        ? html`<div>
+                            <${Row} k="Delivered" v=${bits(netRec.bits_delivered_total)} />
+                            <${Row} k="Queued" v=${bits(netRec.queue_bits)} />
+                            <${Row} k="Completed" v=${`${netRec.n_completed}/${netRec.n_sats}`} />
+                            <${Row} k="Waiting" v=${netRec.n_waiting} />
+                            <${Row} k="Beams transmitting" v=${`${netRec.beams_active} / ${netRec.beams_total}`} />
+                            <${Row} k="Beams available" v=${`${netRec.beams_available} / ${netRec.beams_total}`}
+                                    accent=${netRec.beams_available < netRec.beams_total ? "var(--st-warn)" : undefined} />
+                            <${Row} k="Visible pairs" v=${netRec.n_visible_pairs}
+                                    accent=${netRec.n_visible_pairs === 0 ? "var(--st-warn)" : undefined} />
+                            <${Row} k="Sats with a link" v=${`${netRec.n_sats_with_link} / ${netRec.n_sats}`} />
+                            <${Row} k="Contention" v=${netRec.contention_ratio.toFixed(2)} />
+                            <${Row} k="Coverage" v=${pct(netRec.coverage)} />
+                            <${Row} k="Mean SINR" v=${`${netRec.mean_sinr_db.toFixed(1)} dB`} />
+                            <${Row} k="Radiated power" v=${`${netRec.power_w.toFixed(1)} W`} />
+                            <${Row} k="Energy" v=${`${(netRec.energy_j_total / 1e3).toFixed(2)} kJ`} />
+                            <${Row} k="Interruptions" v=${netRec.interruptions_total} />
+                            <${Row} k="Handovers"
+                                    v=${`${netRec.handovers_total} (${netRec.proactive_handovers_total} proactive)`} />
+                            <${Row} k="Decision latency" v=${`${netRec.decision_ms.toFixed(3)} ms`} />
+                          </div>`
+                        : html`<div class="label">awaiting telemetry</div>`}
+                    <//>
+                  </div>
+                </section>
+
+                <section class="section">
+                  <${SecHead} idx="04" title="Timeline"
+                              note="the same telemetry stream, across the whole run" />
+                  <div class="grid-charts">
+                    <${Panel} title="Throughput"><${ThroughputChart} data=${history} /><//>
+                    <${Panel} title="Utilisation · beams / bandwidth / coverage">
+                      <${UtilisationChart} data=${history} />
+                    <//>
+                    <${Panel} title="Backlog vs delivered"><${QueueChart} data=${history} /><//>
+                    <${Panel} title="Health · congestion · failure risk">
+                      <${HealthChart} data=${history} />
+                    <//>
+                  </div>
+                </section>
+              </div>
+
+              <!-- ===================================================== STUDY -->
+              <div class="viewgroup" id="study">
+                <${ViewHead} name="STUDY" note="which configuration is better, and by how much"
+                             count="2 sections" />
+
+                <section class="section flush">
+                  <${SecHead} idx="01" title="Scenario"
+                              note="engineering only — an operator never sees a preset" />
+                  <div class="grid-scenario">
+                    <${Panel} title="Configuration">
+                      <${RunControl}
+                        current=${run}
+                        onStarted=${(r) => {
+                          setStarted(r);
+                          setRunId(r.run_id);
+                        }}
+                      />
+                    <//>
+                    <${Panel} title="Active configuration"><${DecisionPanel} frame=${shown} /><//>
+                  </div>
+                </section>
+
+                <section class="section">
+                  <${SecHead} idx="02" title="Result" note="a KPI vector, never one score" />
+                  <div class="grid-decision">
+                    <${Panel}
+                      title="Run summary"
+                      action=${activeId &&
+                      html`<div class="export-links">
+                        ${FACES.map(
+                          (f) => html`<a key=${f} class="export-link" href=${api.exportUrl(activeId, f)}>${f}</a>`,
                         )}
-                      <//>`}
-                    </div>`
-                  : html`<div class="label">no run yet</div>`}
-              <//>
+                      </div>`}
+                    >
+                      ${run
+                        ? html`<div>
+                            <${Row} k="Run" v=${run.run_id} />
+                            <${Row} k="Scenario" v=${run.name} />
+                            <${Row} k="Status" v=${run.status} />
+                            <${Row} k="Scheduler" v=${run.policy.scheduler} />
+                            <${Row} k="Bandwidth" v=${run.policy.bandwidth_allocator} />
+                            <${Row} k="Power" v=${run.policy.power_allocator} />
+                            <${Row} k="Frequency" v=${run.policy.freq_allocator} />
+                            ${run.summary &&
+                            html`<${Fragment}>
+                              <div class="label" style=${{ marginTop: "16px" }}>Final KPI vector</div>
+                              ${KPI_ORDER.filter((k) => run.summary[k] !== undefined).map(
+                                (k) => html`<${Row}
+                                  key=${k}
+                                  k=${k.replace(/_/g, " ")}
+                                  v=${typeof run.summary[k] === "number"
+                                    ? run.summary[k].toFixed(3)
+                                    : String(run.summary[k])}
+                                />`,
+                              )}
+                            <//>`}
+                          </div>`
+                        : html`<div class="label">no run yet</div>`}
+                    <//>
 
-              <${Panel} title="Health breakdown — click any indicator">
-                <${IndicatorBreakdown} frame=${shown} />
-              <//>
-            </div>
-          </section>
-        </div>
+                    <${Panel} title="Health breakdown — click any indicator">
+                      <${IndicatorBreakdown} frame=${shown} />
+                    <//>
+                  </div>
+                </section>
+              </div>
+            `}
 
         <footer class="footer">
-          X-NioS · physics-driven communication planning · telemetry schema
-          ${(shown && shown.record.schema_version) || "1.0"} · quote is free, accept consumes
-          capacity · channel assigned at execution
+          X-NioS · ${operator
+            ? "every number here traces to your accepted request"
+            : "engineering view — scenario presets and policy comparison"}
         </footer>
       </main>
     <//>

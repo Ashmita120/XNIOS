@@ -42,39 +42,13 @@ from phase_benchmark import build_config, SCENARIO_PROFILES
 
 from xnios import forecast as fc
 from xnios.config import scenario_from_config, sim_config_from_config
+# The production execution path, imported rather than reimplemented. This test
+# is the architectural gate on request -> plan -> execute, so it has to exercise
+# the same PlanScheduler that POST /api/plan/execute runs; a local copy would
+# gate a fiction.
+from xnios.execution import PlanScheduler, execution_scenario
 from xnios.planner import Planner, Customer, CommRequest, TimingIntent
-from xnios.schedulers import Scheduler
 from xnios.simulator import Simulator
-from xnios.state import Assignment
-
-
-class PlanScheduler(Scheduler):
-    """Executes a booked ledger literally — no policy of its own.
-
-    At each decision it offers every satellite whose committed window covers
-    `now` to the station that window names. It never invents an assignment, so
-    whatever the simulator delivers is attributable to the plan.
-    """
-
-    name = "plan-follower"
-
-    def __init__(self, commitments):
-        self.by_sat = defaultdict(list)
-        for c in commitments:
-            self.by_sat[c.satellite_id].append(c)
-        for v in self.by_sat.values():
-            v.sort(key=lambda c: c.t_start)
-
-    def decide(self, state):
-        out = []
-        for sat in state.free_sats():
-            for c in self.by_sat.get(sat.sat_id, ()):
-                if c.t_start - 1e-6 <= state.t <= c.t_end + 1e-6:
-                    if any(v.station_id == c.station
-                           for v in state.visible_for(sat.sat_id)):
-                        out.append(Assignment(sat.sat_id, c.station))
-                    break
-        return out
 
 
 # --------------------------------------------------------------------------- #
@@ -168,15 +142,11 @@ def check_structure(planner, scn) -> list:
 # --------------------------------------------------------------------------- #
 def check_execution(planner, cfg, promised: dict) -> tuple:
     """Run the booked ledger through the engine. Returns (delivered, results)."""
-    scn = scenario_from_config(cfg)
-    horizon = max((c.t_end for c in planner.commitments), default=0.0)
+    from xnios.execution import execution_duration_s
     sim_cfg = sim_config_from_config(cfg)
-    sim_cfg.duration_s = float(np.ceil((horizon + 60.0) / sim_cfg.dt_s) * sim_cfg.dt_s)
-
+    sim_cfg.duration_s = execution_duration_s(planner.commitments, sim_cfg.dt_s)
+    scn = execution_scenario(scenario_from_config(cfg), planner.commitments)
     booked = set(promised)
-    for s in scn.satellites:
-        # only the requested satellites carry demand, so nothing else competes
-        s.backlog_bits = promised.get(s.id, 0.0) * 1e9 if s.id in booked else 0.0
 
     res = Simulator(scn, PlanScheduler(planner.commitments), sim_cfg).run()
     delivered = {sid: res.per_sat[sid]["delivered_gbit"] for sid in booked}
