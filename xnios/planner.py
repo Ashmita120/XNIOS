@@ -546,13 +546,24 @@ class Planner:
 
         # the best window that is NOT the one we would start with — used both for
         # "next opportunity" and for the planning-time defer comparison
-        later = [c for c in cands if first is None or c[2] > first.t_start + 1e-6]
-        best_later = max(later, key=lambda c: c[1]) if later else None
-        if best_later is not None:
+        # Contacts this plan did NOT take. Excluding the ones it did matters:
+        # reporting a window as an "alternative" while the schedule is already
+        # using it is how Delhi ended up listed both as contact 2 and as the
+        # next opportunity 8 hours later.
+        used = {(w.station, round(w.pass_t_rise, 3)) for w in plan.schedule}
+        spare = [c for c in cands if (c[0].station_id, round(c[0].t_rise, 3)) not in used]
+
+        # Two different questions, and they had been conflated under one label.
+        # `next_opportunity` is the EARLIEST unused contact — what an operator
+        # who dislikes this plan wants. `best_later` is the FATTEST one, which is
+        # what the flexible-timing deferral decision needs; it is not reported.
+        nxt = min(spare, key=lambda c: c[2]) if spare else None
+        best_later = max(spare, key=lambda c: c[1]) if spare else None
+        if nxt is not None:
             plan.next_opportunity = {
-                "station": best_later[0].station_id,
-                "in_s": max(0.0, best_later[2] - t_now),
-                "deliverable_gbit": best_later[1],
+                "station": nxt[0].station_id,
+                "in_s": max(0.0, nxt[2] - t_now),
+                "deliverable_gbit": nxt[1],
             }
 
         if first is None:
@@ -610,8 +621,17 @@ class Planner:
             plan.decision = Decision.SCHEDULE
             plan.admitted = True
             plan.reason_code = "awaiting_next_contact"
-            plan.explanation.append(
-                f"Next usable contact is {first.station} in {first.t_start - t_now:.0f} s")
+            wait = first.t_start - t_now
+            if first.pass_t_rise <= t_now < first.pass_t_set:
+                # The contact is up right now; it is other bookings that delay
+                # this one. Saying "next usable contact in 67 s" implied the
+                # satellite was below the horizon, which it was not.
+                plan.explanation.append(
+                    f"{first.station} is in contact now but committed to earlier "
+                    f"requests for another {wait:.0f} s")
+            else:
+                plan.explanation.append(
+                    f"Next usable contact is {first.station} in {wait:.0f} s")
 
         if req.timing is TimingIntent.BY_DEADLINE and req.deadline_s is not None:
             plan.meets_deadline = (plan.completes_at_s <= req.deadline_s
@@ -628,6 +648,14 @@ class Planner:
                 f"{plan.scheduled_gbit:.1f} Gbit deliverable across "
                 f"{len(plan.schedule)} contact(s), "
                 f"completing at t+{plan.completes_at_s:.0f} s"))
+            if len(plan.schedule) > 1:
+                # The quote assumes nominal transmit power; execution runs an
+                # adaptive allocator that can beat it, so later contacts are
+                # reserved rather than predicted. Unused ones are released.
+                plan.explanation.append(
+                    f"The last {len(plan.schedule) - 1} contact(s) are reserved as "
+                    f"headroom — the quote assumes nominal transmit power, and any "
+                    f"that go unused are released back automatically")
         b = plan.beam_requirement
         if b and not b["within_scan_envelope"]:
             plan.explanation.append(
