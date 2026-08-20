@@ -184,7 +184,7 @@ function PlanPanel({ plan, booked, busy, onAccept, onRelease }) {
 }
 
 // ----------------------------------------------------------------- 03 queue
-function QueuePanel({ queue, onRemove, onClear }) {
+function QueuePanel({ queue, onRemove, onClear, onCommitted }) {
   const [cmp, setCmp] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -197,6 +197,7 @@ function QueuePanel({ queue, onRemove, onClear }) {
       if (commit) {
         const r = await api.plan.batch(body("oppcost"));
         setCmp({ oppcost: r, fcfs: cmp && cmp.fcfs, committed: true });
+        if (onCommitted) onCommitted();      // capacity was consumed
       } else {
         const [f, o] = await Promise.all([
           api.plan.batch(body("fcfs")),
@@ -370,8 +371,17 @@ export function PlanningConsole({ onLedgerChange }) {
     return b;
   }
 
+  /** Re-read the ledger and tell the shell, so the masthead and TRANSFER follow.
+   *  Every path that changes bookings must go through here — accept, release,
+   *  and a committed batch. */
   const refreshLedger = () =>
-    api.plan.ledger().then(setLedger).catch(() => undefined);
+    api.plan
+      .ledger()
+      .then((l) => {
+        setLedger(l);
+        if (onLedgerChange) onLedgerChange();
+      })
+      .catch(() => undefined);
 
   async function quote() {
     setBusy(true); setErr(null); setBooked(false);
@@ -485,7 +495,7 @@ export function PlanningConsole({ onLedgerChange }) {
       <section class="xsec">
         <${Head} idx="02" title="Multi-request arbitration"
                  note="dry run — nothing is booked until you commit" />
-        <${QueuePanel} queue=${queue}
+        <${QueuePanel} queue=${queue} onCommitted=${refreshLedger}
                        onRemove=${(id) => setQueue((q) => q.filter((r) => r.request_id !== id))}
                        onClear=${() => setQueue([])} />
       </section>
