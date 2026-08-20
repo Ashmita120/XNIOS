@@ -288,3 +288,35 @@
 }
 .mode-toggle button:last-child { border-right: none; }
 .mode-toggle button.on { background: var(--accent); color: var(--sel-fg); font-weight: 700; }
+
+
+/* --- resources in use (operator) ---------------------------------------- */
+/* One card per link the request consumed. This is where the phased array stops
+   being an abstraction: which aperture, which beam it formed, which channel the
+   allocator picked at execution, and how far off boresight it had to steer. */
+.xn-plan .res-grid {
+  display: grid; gap: var(--p3);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.xn-plan .res-card {
+  border: 1px solid var(--p-line); background: var(--p-bg); padding: var(--p3);
+}
+.xn-plan .res-card .xcap { margin-bottom: var(--p2); }
+
+/* --- delivery curve ------------------------------------------------------ */
+.xn-plan .curve { width: 100%; height: 120px; display: block; }
+.xn-plan .curve-line { fill: none; stroke: var(--p-accent); stroke-width: 0.7; vector-effect: non-scaling-stroke; }
+.xn-plan .curve-fill { fill: rgba(var(--accent-rgb), 0.12); stroke: none; }
+.xn-plan .curve-target {
+  stroke: var(--p-mid); stroke-width: 1; stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+.xn-plan .curve-legend {
+  display: flex; gap: var(--p4); flex-wrap: wrap; margin-top: var(--p2);
+  font-size: var(--p-micro); letter-spacing: 0.1em; text-transform: uppercase; color: var(--p-dim);
+}
+.xn-plan .curve-legend i { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin-right: 5px; }
+.xn-plan .curve-legend i.k-line { border-top: 2px solid var(--p-accent); }
+.xn-plan .curve-legend i.k-target { border-top: 1px dashed var(--p-mid); }
+
+.xn-plan .res-card.idle { opacity: 0.55; border-style: dashed; }

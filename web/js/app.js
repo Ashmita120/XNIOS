@@ -228,10 +228,16 @@ function Console() {
               <div class="viewgroup" id="transfer">
                 <${ViewHead} name="TRANSFER" note="what the network is doing with your request" />
                 ${execErr && html`<div class="xn-plan"><div class="xerr">${execErr}</div></div>`}
+                ${/* links and events are accumulated across the run, not read
+                      from the current frame: a record carries only its own step,
+                      so a finished run's last frame has neither */ null}
                 <${TransferConsole}
                   ledger=${ledger}
                   run=${run}
                   frame=${shown}
+                  history=${history}
+                  links=${links}
+                  events=${events}
                   busy=${busy}
                   onExecute=${execute}
                 />

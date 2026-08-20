@@ -1,23 +1,31 @@
 /**
  * TRANSFER — what happened to the request the operator actually made.
  *
- * Everything here traces back to the accepted plan. Nothing is driven by a
- * scenario preset, which is the invariant the whole restructure exists to
- * enforce: an operator should never have to know that simulation presets exist.
+ * Everything traces back to the accepted plan. Nothing is driven by a scenario
+ * preset, which is the invariant the whole split exists to enforce.
  *
- *   01 Status    promised / delivered / remaining / completion, from the run
- *   02 Passes    a Gantt of the booked windows, with a live NOW marker — the
- *                answer to "when does my data go down, and from where"
- *   03 Execution per-satellite progress and the events for those satellites only
+ *   01 Status     promised / delivered / remaining, and the execute control
+ *   02 Passes     a Gantt of booked windows with a live NOW marker
+ *   03 Resources  what the request actually consumed — station, beam, channel,
+ *                 bandwidth, power, pointing, scan angle. This is where the
+ *                 phased array stops being an abstraction: you can see which
+ *                 aperture formed which beam, where it steered, how far off
+ *                 boresight that was, and what the resulting link carried.
+ *   04 Delivery   the transfer's own curve against its promise, plus the
+ *                 operational KPIs (wait, dropped, interruptions, handovers)
+ *   05 Events     session start/end/handover/failure for these satellites only
  *
- * The map lives in the engineer view. A world map answers "where is everything";
- * an operator asked "when is my pass", and a timeline answers that directly.
+ * Links and events are ACCUMULATED by the shell, not read from the current
+ * frame. A telemetry record carries only what happened in its own step, so a
+ * finished run's last frame has no events and no visible links — reading it
+ * directly shows an empty panel for a transfer that plainly worked.
  */
 
 import { html } from "htm/preact";
-import { clock } from "./format.js";
+import { bps, clock, hz } from "./format.js";
 
 const g1 = (v) => (v === null || v === undefined ? "—" : v.toFixed(1));
+const g2 = (v) => (v === null || v === undefined ? "—" : v.toFixed(2));
 
 const Head = ({ idx, title, note }) => html`
   <div class="xhead">
@@ -48,21 +56,13 @@ const Row = ({ k, v, u, tone }) => html`
   </div>
 `;
 
-/**
- * Pass timeline. One lane per station, one bar per booked window, positioned
- * against a shared span so the lanes are comparable. The NOW marker is the live
- * simulation clock, so during execution you watch the marker cross your passes.
- */
+/** One lane per station, one bar per booked window, against a shared span. */
 function PassTimeline({ commitments, now }) {
   if (!commitments.length) return html`<div class="xempty">nothing booked</div>`;
-
-  const t0 = 0;
   const t1 = Math.max(...commitments.map((c) => c.t_end)) * 1.05 || 1;
-  const span = t1 - t0 || 1;
-  const pct = (t) => `${((t - t0) / span) * 100}%`;
-
+  const pct = (t) => `${(t / t1) * 100}%`;
   const stations = [...new Set(commitments.map((c) => c.station))].sort();
-  const ticks = Array.from({ length: 5 }, (_, i) => t0 + (span * i) / 4);
+  const ticks = Array.from({ length: 5 }, (_, i) => (t1 * i) / 4);
 
   return html`
     <div class="gantt">
@@ -80,7 +80,7 @@ function PassTimeline({ commitments, now }) {
                       class=${`gantt-bar ${now !== null && now >= c.t_end ? "done" : ""} ${
                         now !== null && now >= c.t_start && now < c.t_end ? "live" : ""
                       }`}
-                      style=${{ left: pct(c.t_start), width: pct(c.t_end - c.t_start + t0) }}
+                      style=${{ left: pct(c.t_start), width: pct(c.t_end - c.t_start) }}
                       title=${`${c.request_id} · ${c.gbit.toFixed(2)} Gbit`}
                     >
                       <span>${c.gbit.toFixed(1)}G</span>
@@ -97,9 +97,7 @@ function PassTimeline({ commitments, now }) {
         <div class="gantt-name"></div>
         <div class="gantt-track">
           ${ticks.map(
-            (t, i) => html`<span key=${i} class="gantt-tick" style=${{ left: pct(t) }}>
-              T+${clock(t)}
-            </span>`,
+            (t, i) => html`<span key=${i} class="gantt-tick" style=${{ left: pct(t) }}>T+${clock(t)}</span>`,
           )}
         </div>
       </div>
@@ -107,7 +105,95 @@ function PassTimeline({ commitments, now }) {
   `;
 }
 
-export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
+/**
+ * The resource picture. One card per link the request used.
+ *
+ * `beam` is which of the aperture's simultaneous beams was formed; `channel` is
+ * the frequency/polarisation slot the allocator chose at execution — the value
+ * the plan deliberately refused to guess. `scan` is the angle off boresight,
+ * which is what drives gain loss and beam broadening on a phased array.
+ */
+function Resources({ links }) {
+  if (!links.length) {
+    return html`<div class="xempty">execute the plan to see the resources it used</div>`;
+  }
+  // A link that never got a beam was visible but unused — an alternative the
+  // plan did not take. Worth showing (it explains the choice) but clearly
+  // separated from what actually carried data.
+  const used = (l) => l.beam !== null && l.beam !== undefined;
+  const sorted = [...links].sort((a, b) => Number(used(b)) - Number(used(a)));
+
+  return html`
+    <div class="res-grid">
+      ${sorted.map((l) => {
+        const on = used(l);
+        return html`
+          <div class=${on ? "res-card" : "res-card idle"} key=${l.key}>
+            <div class="xcap">
+              <span>${l.sat_id} → ${l.station_id}</span>
+              <span class="n">${on ? "SERVED" : "NOT USED"}</span>
+            </div>
+            <${Row} k="Beam" v=${on ? `#${l.beam}` : html`<span class="muted">none formed</span>`} />
+            ${/* The channel is only assigned when a station forms more than one
+                  beam at once — with a single beam there is no co-channel
+                  decision to make, which is the measured result, not a gap. */ null}
+            <${Row}
+              k="Channel"
+              v=${l.channel === null || l.channel === undefined
+                ? html`<span class="muted">${on ? "single beam · no reuse" : "—"}</span>`
+                : `CH-${l.channel}`}
+              tone=${l.channel === null || l.channel === undefined ? "" : "accent"}
+            />
+            <${Row} k="Bandwidth" v=${l.alloc_bw_hz ? hz(l.alloc_bw_hz) : "—"} />
+            <${Row} k="Tx power" v=${g2(l.alloc_power_w)} u="W" />
+            <${Row} k="Pointing" v=${`az ${g1(l.az_deg)} / el ${g1(l.elev_deg)}`} u="°" />
+            <${Row} k="Scan angle" v=${g1(l.scan_deg)} u="°"
+                    tone=${l.scan_deg > 60 ? "warn" : ""} />
+            <${Row} k="Range" v=${g1(l.range_km)} u="km" />
+            <${Row} k="SINR" v=${g1(l.sinr_db)} u="dB"
+                    tone=${l.sinr_db >= 10 ? "accent" : l.sinr_db >= 3 ? "warn" : "crit"} />
+            <${Row} k="Interference"
+                    v=${l.inr_db <= -100 ? html`<span class="muted">none</span>` : `${g1(l.inr_db)} dB`} />
+            <${Row} k="Rain fade" v=${g1(l.rain_fade_db)} u="dB"
+                    tone=${l.rain_fade_db > 1 ? "warn" : ""} />
+            <${Row} k="Peak rate" v=${bps(l.peak_rate_bps || l.rate_bps)} />
+          </div>
+        `;
+      })}
+    </div>
+  `;
+}
+
+/** Cumulative delivered against the promise. The operator's whole question. */
+function DeliveryCurve({ history, promised }) {
+  const pts = history.filter((p) => p.delivered_gbit !== undefined);
+  if (pts.length < 2) return html`<div class="xempty">no delivery recorded yet</div>`;
+
+  const W = 100, H = 40;
+  const t1 = Math.max(...pts.map((p) => p.t)) || 1;
+  const yMax = Math.max(promised, ...pts.map((p) => p.delivered_gbit)) || 1;
+  const path = pts
+    .map((p, i) => `${i ? "L" : "M"}${(p.t / t1) * W} ${H - (p.delivered_gbit / yMax) * H}`)
+    .join(" ");
+  const target = H - (promised / yMax) * H;
+
+  return html`
+    <svg class="curve" viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img"
+         aria-label="cumulative delivered against the promised volume">
+      <line x1="0" y1=${target} x2=${W} y2=${target} class="curve-target" />
+      <path d=${`${path} L${W} ${H} L0 ${H} Z`} class="curve-fill" />
+      <path d=${path} class="curve-line" />
+    </svg>
+    <div class="curve-legend">
+      <span><i class="k-line"></i> delivered</span>
+      <span><i class="k-target"></i> promised ${g1(promised)} Gbit</span>
+      <span class="muted">T+0 → T+${clock(t1)}</span>
+    </div>
+  `;
+}
+
+export function TransferConsole({ ledger, run, frame, history = [], links = [], events = [],
+                                  onExecute, busy }) {
   const commitments = (ledger && ledger.commitments) || [];
   const promised = (ledger && ledger.total_gbit) || 0;
 
@@ -115,8 +201,7 @@ export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
     return html`
       <div class="xn-plan">
         <section class="xsec">
-          <${Head} idx="01" title="Your transfer"
-                   note="accept a plan in PLAN and it appears here" />
+          <${Head} idx="01" title="Your transfer" note="accept a plan in PLAN and it appears here" />
           <div class="xpanel"><div class="xempty">
             nothing booked yet — request capacity above, then accept the plan
           </div></div>
@@ -134,8 +219,9 @@ export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
   const done = run && run.status === "done";
   const frac = promised > 0 ? Math.min(1, delivered / promised) : 0;
 
-  // events belonging to the booked satellites only
-  const events = rec ? rec.events.filter((e) => booked.has(e.sat_id)) : [];
+  const myLinks = links.filter((l) => booked.has(l.sat_id));
+  const myEvents = events.filter((e) => booked.has(e.sat_id));
+  const sum = (run && run.summary) || null;
 
   return html`
     <div class="xn-plan">
@@ -145,9 +231,7 @@ export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
                  note=${run ? `run ${run.run_id} · ${run.status}` : "not executed yet"} />
         <div class="xpanel">
           <div class="xverdict">
-            <span class="tag">
-              ${!run ? "READY TO EXECUTE" : done ? "COMPLETE" : "EXECUTING"}
-            </span>
+            <span class="tag">${!run ? "READY TO EXECUTE" : done ? "COMPLETE" : "EXECUTING"}</span>
             <span class="meta">
               <b>${commitments.length} window(s) · ${new Set(commitments.map((c) => c.request_id)).size} request(s)</b>
               ${[...booked].join(" · ")}
@@ -164,9 +248,7 @@ export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
 
           <div class="xbtnrow">
             <button class="xbtn" disabled=${busy || (run && run.status === "running")}
-                    onClick=${onExecute}>
-              ${run ? "Re-execute" : "Execute plan"}
-            </button>
+                    onClick=${onExecute}>${run ? "Re-execute" : "Execute plan"}</button>
             ${run &&
             html`<span class="xnote" style=${{ marginLeft: 0, alignSelf: "center" }}>
               ${run.steps}/${run.total_steps} steps · T+${clock(now || 0)}
@@ -177,18 +259,52 @@ export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
 
       <!-- ------------------------------------------------------------ 02 -->
       <section class="xsec">
-        <${Head} idx="02" title="Pass timeline"
-                 note="when your data goes down, and from which station" />
-        <div class="xpanel">
-          <${PassTimeline} commitments=${commitments} now=${now} />
-        </div>
+        <${Head} idx="02" title="Pass timeline" note="when your data goes down, and from where" />
+        <div class="xpanel"><${PassTimeline} commitments=${commitments} now=${now} /></div>
       </section>
 
       <!-- ------------------------------------------------------------ 03 -->
       <section class="xsec">
-        <${Head} idx="03" title="Execution"
+        <${Head} idx="03" title="Resources in use"
+                 note="the aperture, the beam it formed, and where it steered" />
+        <div class="xpanel"><${Resources} links=${myLinks} /></div>
+      </section>
+
+      <!-- ------------------------------------------------------------ 04 -->
+      <section class="xsec">
+        <${Head} idx="04" title="Delivery" note="your transfer against its promise" />
+        <div class="xcols" style=${{ gridTemplateColumns: "1.4fr 1fr" }}>
+          <div class="xpanel">
+            <div class="xcap">Cumulative delivered</div>
+            <${DeliveryCurve} history=${history} promised=${promised} />
+          </div>
+          <div class="xpanel">
+            <div class="xcap">Outcome</div>
+            ${sum
+              ? html`<div>
+                  <${Row} k="Completed" v=${`${(sum.completion_rate * 100).toFixed(0)}%`}
+                          tone=${sum.completion_rate >= 0.999 ? "accent" : "warn"} />
+                  <${Row} k="Dropped" v=${g2(sum.dropped_gbit)} u="Gbit"
+                          tone=${sum.dropped_gbit > 1e-3 ? "warn" : ""} />
+                  <${Row} k="Mean wait" v=${g1(sum.mean_wait_s)} u="s" />
+                  <${Row} k="In system" v=${g1(sum.mean_latency_s)} u="s" />
+                  <${Row} k="Throughput" v=${g2(sum.throughput_mbps)} u="Mbps" />
+                  <${Row} k="Beam use" v=${`${(sum.beam_utilization * 100).toFixed(1)}%`} />
+                  <${Row} k="Interruptions" v=${sum.sessions_interrupted}
+                          tone=${sum.sessions_interrupted ? "warn" : ""} />
+                  <${Row} k="Handovers" v=${sum.handovers} />
+                  <${Row} k="Energy" v=${g2(sum.energy_kj)} u="kJ" />
+                </div>`
+              : html`<div class="xempty">available when the run finishes</div>`}
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------ 05 -->
+      <section class="xsec">
+        <${Head} idx="05" title="Execution log"
                  note="only the satellites your request booked" />
-        <div class="xcols" style=${{ gridTemplateColumns: "1fr 1fr" }}>
+        <div class="xcols" style=${{ gridTemplateColumns: "1fr 1.4fr" }}>
           <div class="xpanel">
             <div class="xcap">Progress <span class="n">${sats.length} satellite(s)</span></div>
             ${sats.length
@@ -199,11 +315,8 @@ export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
                               tone=${s.state === "transmitting" ? "accent" : ""} />
                       <${Row} k="Delivered" v=${g1(s.delivered_bits / 1e9)} u="Gbit" />
                       <${Row} k="Remaining" v=${g1(s.backlog_bits / 1e9)} u="Gbit" />
-                      <${Meter}
-                        filled=${s.backlog0_bits > 0
-                          ? Math.round((s.delivered_bits / s.backlog0_bits) * 8)
-                          : 0}
-                      />
+                      <${Meter} filled=${s.backlog0_bits > 0
+                        ? Math.round((s.delivered_bits / s.backlog0_bits) * 8) : 0} />
                     </div>
                   `,
                 )
@@ -211,24 +324,27 @@ export function TransferConsole({ ledger, run, frame, onExecute, busy }) {
           </div>
 
           <div class="xpanel">
-            <div class="xcap">Events <span class="n">${events.length}</span></div>
-            ${events.length
+            <div class="xcap">Events <span class="n">${myEvents.length}</span></div>
+            ${myEvents.length
               ? html`<div class="xscroll">
                   <table>
                     <thead><tr><th>T</th><th>Event</th><th>Satellite</th><th>Station</th></tr></thead>
                     <tbody>
-                      ${events.map(
-                        (e, i) => html`<tr key=${i}>
-                          <td class="muted">T+${clock(e.t)}</td>
-                          <td>${e.kind.replace(/_/g, " ")}</td>
-                          <td>${e.sat_id}</td>
-                          <td>${e.station_id || "—"}</td>
-                        </tr>`,
-                      )}
+                      ${myEvents
+                        .slice()
+                        .reverse()
+                        .map(
+                          (e, i) => html`<tr key=${i}>
+                            <td class="muted">T+${clock(e.t)}</td>
+                            <td>${e.kind.replace(/_/g, " ")}</td>
+                            <td>${e.sat_id}</td>
+                            <td>${e.station_id || "—"}</td>
+                          </tr>`,
+                        )}
                     </tbody>
                   </table>
                 </div>`
-              : html`<div class="xempty">no events for your satellites</div>`}
+              : html`<div class="xempty">no events yet — execute the plan</div>`}
           </div>
         </div>
       </section>
