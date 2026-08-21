@@ -222,12 +222,13 @@ function QueuePanel({ queue, onRemove, onClear, onCommitted }) {
     <${Panel} cap="Competing requests" n=${`${queue.length} queued`}>
       ${queue.length === 0
         ? html`<div class="xempty">
-            add requests from the form above, then compare how the two policies allocate them
+            add requests with QUEUE IT above — nothing is booked, the queue is local
+            until you compare, and only COMMIT OPPCOST consumes capacity
           </div>`
         : html`<div class="xscroll">
             <table>
               <thead><tr>
-                <th>#</th><th>Satellite</th><th>Customer</th>
+                <th>#</th><th>Satellite</th><th>Customer</th><th>Timing</th>
                 <th class="num">Volume</th><th class="num">Deadline</th><th></th>
               </tr></thead>
               <tbody>
@@ -235,6 +236,7 @@ function QueuePanel({ queue, onRemove, onClear, onCommitted }) {
                   <td class="muted">${String(i + 1).padStart(2, "0")}</td>
                   <td>${r.satellite_id}</td>
                   <td>${r.customer_id || html`<span class="muted">—</span>`}</td>
+                  <td>${r.timing.replace(/_/g, " ")}</td>
                   <td class="num">${r.data_volume_gbit.toFixed(1)}</td>
                   <td class="num">${r.deadline_s ? `T+${clock(r.deadline_s)}` : "—"}</td>
                   <td class="num">
@@ -407,11 +409,22 @@ export function PlanningConsole({ onLedgerChange }) {
     finally { setBusy(false); }
   }
 
+  /**
+   * Add the current form values to the local comparison queue.
+   *
+   * Books nothing and calls nothing — the queue lives in this component until
+   * "Compare policies" sends it as a dry run. It is deliberately separate from
+   * Accept, which is the only control that consumes capacity.
+   *
+   * The timing intent is passed through as chosen. An earlier version forced
+   * every queued request to by_deadline on the belief that a batch needed a
+   * bound; it does not — asap and flexible both plan fine — and the override
+   * silently rewrote an intent the operator had selected, using a deadline
+   * field that is not even visible unless Deadline is picked.
+   */
   function enqueue() {
     const b = body();
     b.request_id = `Q-${String(queue.length + 1).padStart(2, "0")}`;
-    if (intent !== "by_deadline") b.deadline_s = Number(deadline);   // batch needs a bound
-    b.timing = "by_deadline";
     setQueue((q) => [...q, b]);
   }
 
