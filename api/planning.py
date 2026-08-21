@@ -223,6 +223,13 @@ def batch(req: BatchIn) -> dict:
         raise HTTPException(422, f"policy must be one of {list(p.BATCH_POLICIES)}")
 
     saved = list(p.commitments)                  # rollback point for a dry run
+    # The result depends on what the network has ALREADY promised, and that
+    # dependency was invisible: two comparisons of an identical queue return
+    # different allocations when bookings happened in between, which reads as
+    # nondeterminism. Report the baseline the comparison planned against.
+    baseline = {"commitments": len(saved),
+                "consumed_gbit": sum(c.gbit for c in saved),
+                "t_now": req.t_now}
     try:
         plans = p.plan_batch([r.to_request() for r in req.requests],
                              t_now=req.t_now, policy=req.policy,
@@ -254,6 +261,7 @@ def batch(req: BatchIn) -> dict:
         p.commitments = saved
 
     return {"summary": summary,
+            "baseline": baseline,
             "booked_order": [pl.request_id for pl in plans],
             "plans": [pl.to_dict() for pl in plans]}
 

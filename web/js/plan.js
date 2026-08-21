@@ -259,6 +259,17 @@ function QueuePanel({ queue, onRemove, onClear, onCommitted }) {
       ${err && html`<div class="xerr">${err}</div>`}
 
       ${fs && os && html`<div style=${{ marginTop: "16px" }}>
+        ${/* Same queue + same ledger + same t_now = same allocation. Naming the
+              ledger it planned against is what makes that checkable — without
+              it, a comparison run before and after a booking looks random. */ null}
+        <div class="xnote" style=${{ marginLeft: 0, marginBottom: "8px" }}>
+          planned against ${cmp.oppcost.baseline.commitments} existing booking(s)
+          · ${cmp.oppcost.baseline.consumed_gbit.toFixed(1)} Gbit already committed
+          · clock frozen at T+${cmp.oppcost.baseline.t_now.toFixed(0)}s
+          ${cmp.oppcost.baseline.commitments > 0
+            ? html` — release them to compare against an empty network`
+            : ""}
+        </div>
         <div class="xcmp">
           <div>
             <div class="l">fcfs — submission order</div>
