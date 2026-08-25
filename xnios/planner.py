@@ -404,6 +404,38 @@ class Planner:
             priority = cust.priority if cust else 2
         return need_gbit, cust, tier, priority
 
+    def _next_free_contact(self, sat_id: str, t_now: float) -> dict | None:
+        """The soonest contact this satellite could actually still use.
+
+        `Lookahead.next_contact` answers a geometric question — when does this
+        satellite next rise over a station — and knows nothing about the ledger.
+        On the reject path that produced a straight contradiction: a request
+        turned down for "no usable contact before the deadline" was offered
+        "Ahmedabad-SAC, in 00:00, capacity 34.6 Gbit", which is the contact it
+        had just been refused, every second of it already promised to an earlier
+        request.
+
+        So this asks the question the operator meant: the first contact with
+        capacity nobody has booked, and how much of it is really free.
+        """
+        sat_busy = [(c.t_start, c.t_end) for c in self.commitments
+                    if c.satellite_id == sat_id]
+        horizon_end = t_now + self.horizon_s
+        for p in self.look.by_sat.get(sat_id, ()):
+            if p.t_set <= t_now or p.t_rise >= horizon_end:
+                continue
+            _g, free_station, _c = self._available(p, t_now, horizon_end)
+            free = self._subtract(free_station, sat_busy) if free_station else []
+            if not free:
+                continue
+            gbit = sum(p.bits_until(a, b) for a, b in free) / 1e9
+            if gbit <= 1e-9:
+                continue
+            return {"station": p.station_id,
+                    "in_s": max(0.0, free[0][0] - t_now),
+                    "deliverable_gbit": gbit}
+        return None
+
     def _band(self, sat) -> str:
         for hz, name in self.BAND_NAMES:
             if sat.freq_hz < hz * 1.5:
@@ -503,10 +535,12 @@ class Planner:
                 + (f"before the deadline (t+{t_limit:.0f} s)"
                    if req.timing is TimingIntent.BY_DEADLINE
                    else f"within {self.horizon_s / 3600:.0f} h"))
-            nxt = self.look.next_contact(req.satellite_id, t_now)
-            if nxt:
-                plan.next_opportunity = {"station": nxt["station"], "in_s": nxt["wait_s"],
-                                         "deliverable_gbit": nxt["capacity_bits"] / 1e9}
+            plan.next_opportunity = self._next_free_contact(req.satellite_id, t_now)
+            if plan.next_opportunity is not None:
+                n = plan.next_opportunity
+                plan.explanation.append(
+                    f"The soonest contact with capacity still free is "
+                    f"{n['station']} in {n['in_s']:.0f} s ({n['deliverable_gbit']:.1f} Gbit)")
             return plan
 
         order = self._order(cands, req)
@@ -783,7 +817,20 @@ class Planner:
             for r in remaining:
                 q = self.plan(r, t_now)
                 if q.shortfall_gbit > 1e-6:
-                    key = (1, 0.0)                          # cannot complete: last
+                    # Cannot complete: booked after everything that can, because
+                    # weighted completion counts whole requests and a partial
+                    # scores nothing either way.
+                    #
+                    # But WITHIN that group the objective is indifferent, and it
+                    # used to fall through to submission order — so the leftover
+                    # capacity went to whoever queued first. A research request
+                    # took 75 Gbit while a military one was rejected, which is
+                    # FCFS wearing the policy's name. Once every remaining
+                    # request is in this group none of them can complete no
+                    # matter how they are ordered, so ranking by tier here costs
+                    # the measured weighted-completion figure nothing and puts
+                    # the scraps where the mission says they belong.
+                    key = (1, -float(q.priority))
                 else:
                     avail = self._probe_available(r, t_now)
                     ratio = q.data_volume_gbit / max(avail, 1e-9)
