@@ -284,6 +284,3 @@ bit-identical (asserted by `experiments/telemetry_validation.py` T1), so V1
 results and the 13/13 validation are untouched. Health scores live *outside* the
 twin because a single score is a scalarisation, and `metrics.py` keeps the KPI
 vector a vector on purpose.
-
-```
-```
