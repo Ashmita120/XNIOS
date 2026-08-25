@@ -23,6 +23,8 @@ surface, and the two do not share state.
 
 from __future__ import annotations
 
+import threading
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -41,6 +43,24 @@ router = APIRouter(prefix="/api/plan", tags=["planning"])
 DEFAULT_PRESET = "india4-nominal"
 WALL_BUDGET_S = 25.0        # longest a paced plan execution may take to stream
 _STATE: dict = {"preset": None, "planner": None, "quotes": {}}
+
+# One planner, one ledger, many callers. Every route below is a plain `def`, so
+# FastAPI runs it in a worker thread and two requests execute *simultaneously*
+# against this shared object.
+#
+# That is not theoretical. "Compare policies" in the console fires fcfs and
+# oppcost as a single Promise.all, and `batch()` plans by mutating the real
+# ledger and rolling it back afterwards. Interleaved, the two runs book into
+# each other's ledger: one sees capacity the other has already taken, the loser's
+# rollback discards or resurrects bookings, and the comparison returns an
+# allocation neither policy would ever produce — an emergency request rejected
+# while a commercial one is served, or fcfs reporting more total capacity than
+# the network has. Both were observed, and both are this, not the policy.
+#
+# The ledger is the one piece of state the whole planning surface agrees on, so
+# it gets one lock. Quotes are pure and stay outside it; everything that reads or
+# writes `planner.commitments` takes it.
+_LOCK = threading.RLock()
 
 
 def _planner() -> Planner:
@@ -67,10 +87,11 @@ def _bind(preset: str, horizon_s: float = 86400.0) -> dict:
         planner.register_customer(Customer(
             customer_id=f"ACCT-{tier.upper()}", name=f"{tier.title()} account",
             tier=tier, sla_availability=sla, quota_gbit=quota))
-    _STATE["planner"] = planner
-    _STATE["preset"] = preset
-    _STATE["quotes"] = {}
-    return _network_info()
+    with _LOCK:
+        _STATE["planner"] = planner
+        _STATE["preset"] = preset
+        _STATE["quotes"] = {}
+        return _network_info()
 
 
 def _network_info() -> dict:
@@ -200,11 +221,16 @@ def add_object(o: DataObjectIn) -> dict:
 def quote(req: RequestIn) -> dict:
     """Plan a request without booking anything."""
     p = _planner()
-    try:
-        plan = p.plan(req.to_request(), t_now=req.t_now)
-    except KeyError as e:
-        raise HTTPException(404, str(e))
-    _STATE["quotes"][plan.request_id] = plan
+    # Books nothing, but it READS the ledger, and a batch running in another
+    # worker thread is mid-way through mutating it. Quoting against a half-built
+    # ledger that is about to be rolled back is how a request gets told capacity
+    # is gone when nothing was ever booked.
+    with _LOCK:
+        try:
+            plan = p.plan(req.to_request(), t_now=req.t_now)
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+        _STATE["quotes"][plan.request_id] = plan
     return plan.to_dict()
 
 
@@ -222,21 +248,32 @@ def batch(req: BatchIn) -> dict:
     if req.policy not in p.BATCH_POLICIES:
         raise HTTPException(422, f"policy must be one of {list(p.BATCH_POLICIES)}")
 
-    saved = list(p.commitments)                  # rollback point for a dry run
-    # The result depends on what the network has ALREADY promised, and that
-    # dependency was invisible: two comparisons of an identical queue return
-    # different allocations when bookings happened in between, which reads as
-    # nondeterminism. Report the baseline the comparison planned against.
-    baseline = {"commitments": len(saved),
-                "consumed_gbit": sum(c.gbit for c in saved),
-                "t_now": req.t_now}
-    try:
-        plans = p.plan_batch([r.to_request() for r in req.requests],
-                             t_now=req.t_now, policy=req.policy,
-                             allow_partial=req.allow_partial)
-    except KeyError as e:
-        p.commitments = saved
-        raise HTTPException(404, str(e))
+    # The whole plan-and-roll-back sequence is one critical section. `plan_batch`
+    # books into the live ledger as it goes, so a concurrent caller that reads it
+    # mid-flight is quoting against a ledger that is about to be undone.
+    with _LOCK:
+        saved = list(p.commitments)              # rollback point for a dry run
+        # The result depends on what the network has ALREADY promised, and that
+        # dependency was invisible: two comparisons of an identical queue return
+        # different allocations when bookings happened in between, which reads as
+        # nondeterminism. Report the baseline the comparison planned against.
+        baseline = {"commitments": len(saved),
+                    "consumed_gbit": sum(c.gbit for c in saved),
+                    "t_now": req.t_now}
+        try:
+            plans = p.plan_batch([r.to_request() for r in req.requests],
+                                 t_now=req.t_now, policy=req.policy,
+                                 allow_partial=req.allow_partial)
+        except KeyError as e:
+            p.commitments = saved
+            raise HTTPException(404, str(e))
+        finally:
+            if not req.commit:
+                p.commitments = saved
+
+        if req.commit:
+            for pl in plans:
+                _STATE["quotes"][pl.request_id] = pl
 
     w_total = sum(pl.priority for pl in plans) or 1
     met = [pl for pl in plans if pl.shortfall_gbit <= 1e-6 and pl.schedule]
@@ -253,12 +290,6 @@ def batch(req: BatchIn) -> dict:
         "weighted_completion": sum(pl.priority for pl in met) / w_total,
         "committed": req.commit,
     }
-
-    if req.commit:
-        for pl in plans:
-            _STATE["quotes"][pl.request_id] = pl
-    else:
-        p.commitments = saved
 
     return {"summary": summary,
             "baseline": baseline,
@@ -285,10 +316,13 @@ def execute(req: ExecuteIn) -> dict:
     unchanged, because a plan run is just a run with `kind: "plan"`.
     """
     p = _planner()
-    if not p.commitments:
-        raise HTTPException(409, "nothing booked — accept a plan first")
-
-    commitments = list(p.commitments)
+    with _LOCK:
+        if not p.commitments:
+            raise HTTPException(409, "nothing booked — accept a plan first")
+        # Snapshot under the lock: the run is built from this list and the
+        # reconcile below prunes against it, so it must be one coherent ledger
+        # and not a half-written one.
+        commitments = list(p.commitments)
     config = dict(presets_mod.all_presets()[_STATE["preset"]])
     sim = dict(config.get("sim", {}))
     dt = float(sim.get("dt_s", 5.0))
@@ -321,7 +355,11 @@ def execute(req: ExecuteIn) -> dict:
         if not surplus:
             return
         keep = {id(c) for c in surplus}
-        p.commitments = [c for c in p.commitments if id(c) not in keep]
+        # Fires on the run thread when the sim finishes, which is not any request
+        # thread — so it can land in the middle of a batch's plan-and-roll-back
+        # and have its pruning thrown away by that rollback.
+        with _LOCK:
+            p.commitments = [c for c in p.commitments if id(c) not in keep]
         run.notes["released"] = [
             {"request_id": c.request_id, "station": c.station,
              "t_start": c.t_start, "t_end": c.t_end, "gbit": c.gbit}
@@ -355,26 +393,32 @@ def accept(request_id: str) -> dict:
     if plan is None:
         raise HTTPException(404, f"no quote '{request_id}' — POST /api/plan first")
     p = _planner()
-    if any(c.request_id == request_id for c in p.commitments):
-        raise HTTPException(409, f"'{request_id}' is already booked")
-    if not p.accept(plan):
-        raise HTTPException(409, {"error": "not admissible",
-                                  "decision": plan.decision.value,
-                                  "reason_code": plan.reason_code})
+    # Check-then-book has to be atomic, or two confirms of the same quote both
+    # pass the duplicate check and the ledger gets two copies of one request.
+    with _LOCK:
+        if any(c.request_id == request_id for c in p.commitments):
+            raise HTTPException(409, f"'{request_id}' is already booked")
+        if not p.accept(plan):
+            raise HTTPException(409, {"error": "not admissible",
+                                      "decision": plan.decision.value,
+                                      "reason_code": plan.reason_code})
+        n = len(p.commitments)
     return {"booked": True, "request_id": request_id,
             "windows": len(plan.schedule), "gbit": plan.scheduled_gbit,
-            "commitments": len(p.commitments)}
+            "commitments": n}
 
 
 @router.delete("/{request_id}")
 def release(request_id: str) -> dict:
-    return {"released": _planner().release(request_id)}
+    with _LOCK:
+        return {"released": _planner().release(request_id)}
 
 
 @router.get("/ledger")
 def ledger() -> dict:
     p = _planner()
-    rows = p.ledger()
+    with _LOCK:
+        rows = p.ledger()
     return {"commitments": rows,
             "total_gbit": sum(r["gbit"] for r in rows),
             "by_station": {g: sum(r["gbit"] for r in rows if r["station"] == g)
