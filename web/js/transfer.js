@@ -328,8 +328,16 @@ export function TransferConsole({ ledger, run, frame, history = [], links = [], 
                   <${Row} k="Dropped" v=${g2(sum.dropped_gbit)} u="Gbit"
                           tone=${sum.dropped_gbit > 1e-3 ? "warn" : ""} />
                   <${Row} k="Mean wait" v=${g1(sum.mean_wait_s)} u="s" />
-                  <${Row} k="In system" v=${g1(sum.mean_latency_s)} u="s" />
-                  <${Row} k="Throughput" v=${g2(sum.throughput_mbps)} u="Mbps" />
+                  ${/* Four numbers that all look like "how long did it take" and
+                        all mean different things. Naming them by their span is
+                        the whole fix: transmitting is the only one the transfer
+                        rate may be divided by, and dividing by the run length
+                        instead is what reported a 275 Mbps link at 141 Mbps. */ null}
+                  <${Row} k="Transmitting" v=${g1(sum.active_tx_s)} u="s" />
+                  <${Row} k="Ready → done" v=${g1(sum.mean_latency_s)} u="s" />
+                  <${Row} k="Rate while transmitting" v=${g2(sum.mean_rate_mbps)} u="Mbps"
+                          tone="accent" />
+                  <${Row} k="Averaged over the run" v=${g2(sum.throughput_mbps)} u="Mbps" />
                   <${Row} k="Beam use" v=${`${(sum.beam_utilization * 100).toFixed(1)}%`} />
                   <${Row} k="Interruptions" v=${sum.sessions_interrupted}
                           tone=${sum.sessions_interrupted ? "warn" : ""} />

@@ -110,6 +110,13 @@ function PlanPanel({ plan, booked, busy, onAccept, onRelease }) {
   const n = plan.next_opportunity;
   const frac = plan.data_volume_gbit > 0
     ? Math.min(1, plan.scheduled_gbit / plan.data_volume_gbit) : 0;
+  // DELIVERABLE is the whole plan; the rows beside it described only the first
+  // window, and the two read as one set of numbers. 256.9 Gbit next to "booked
+  // for 80 s" implies 3.2 Gbps from a 275 Mbps link — the plan was right, the
+  // card was comparing a total against one slice of it. Carry the totals so
+  // the arithmetic closes on what is shown.
+  const bookedTotal = plan.schedule.reduce((a, s) => a + s.duration_s, 0);
+  const multi = plan.schedule.length > 1;
 
   return html`
     <div class="xpanel">
@@ -127,19 +134,24 @@ function PlanPanel({ plan, booked, busy, onAccept, onRelease }) {
         <${Hero} label="Completes"
                  value=${plan.completes_at_s === null ? "—" : clock(plan.completes_at_s)}
                  filled=${plan.completes_at_s === null ? 0 : 3} />
-        <${Hero} label="Scan angle" value=${b ? b.scan_angle_deg.toFixed(1) : "—"} unit="°"
+        <${Hero} label="Scan at start" value=${b ? b.scan_angle_deg.toFixed(1) : "—"} unit="°"
                  filled=${b ? Math.max(1, Math.round((b.scan_angle_deg / 90) * 8)) : 0} />
       </div>
 
       ${w && html`<div class="xhalf">
         <div>
+          <div class="xcap bare">First contact</div>
           <${Row} k="Station" v=${w.station} tone="accent" />
           <${Row} k="Start" v=${`T+${clock(w.t_start)}`} />
           ${/* Two different things that were both labelled "Window": how long the
                 transfer occupies the contact, and how long the contact lasts. */ null}
           <${Row} k="Booked for" v=${w.duration_s.toFixed(0)} u="s" />
           <${Row} k="Contact lasts" v=${(w.contact_s || w.duration_s).toFixed(0)} u="s" />
+          <${Row} k="Carries" v=${g1(w.deliverable_gbit)} u="Gbit" />
+          <div class="xcap bare" style=${{ marginTop: "12px" }}>Whole plan</div>
           <${Row} k="Contacts" v=${plan.schedule.length} />
+          ${multi && html`
+            <${Row} k="Booked across all" v=${bookedTotal.toFixed(0)} u="s" />`}
           <${Row} k="Requested" v=${g1(plan.data_volume_gbit)} u="Gbit" />
           <${Row} k="Shortfall" v=${g1(plan.shortfall_gbit)} u="Gbit"
                   tone=${plan.shortfall_gbit > 1e-6 ? "warn" : ""} />
@@ -147,7 +159,14 @@ function PlanPanel({ plan, booked, busy, onAccept, onRelease }) {
         <div>
           ${b && html`
             <${Row} k="Beams" v=${b.count} />
-            <${Row} k="Pointing" v=${`az ${b.az_deg.toFixed(1)} / el ${b.elev_deg.toFixed(1)}`} u="°" />
+            ${/* Geometry is instantaneous and this is the value at the START of
+                  the first window — the highest elevation the transfer will see.
+                  Unlabelled it looks like a property of the pass, and then
+                  execution telemetry sampled a minute later "disagrees" with it
+                  when both are simply the same satellite, further along. */ null}
+            <${Row} k="Pointing at start"
+                    v=${`az ${b.az_deg.toFixed(1)} / el ${b.elev_deg.toFixed(1)}`} u="°" />
+            <${Row} k="Range at start" v=${b.range_km.toFixed(0)} u="km" />
             <${Row} k="Beamwidth" v=${b.beamwidth_deg.toFixed(2)} u="°" />
             <${Row} k="Envelope" v=${b.within_scan_envelope ? "within limit" : "EXCEEDED"}
                     tone=${b.within_scan_envelope ? "accent" : "crit"} />`}
