@@ -204,6 +204,7 @@ class Simulator:
             diag = {} if self.tel is not None else None       # per-link RF detail for telemetry
             rates = self._compute_rates(session, vis_by_sat, alloc_bw, alloc_pw, t, diag,
                                         metrics=metrics)
+            tx_spans = []                    # seconds each link actually carried, this step
             for sid, (gid, _beam) in list(session.items()):
                 v = vis_by_sat.get(sid, {}).get(gid)
                 if v is None:
@@ -226,6 +227,10 @@ class Simulator:
                 backlog[sid] -= bits
                 delivered_step[sid] = delivered_step.get(sid, 0.0) + bits
                 metrics.note_transfer(sid, gid, bits)
+                # bits/rate, not xfer_dt: on the step that drains the buffer the
+                # link stops partway through. Measuring the span here is what
+                # keeps the mean rate at or below the peak rate by construction.
+                tx_spans.append(min(bits / rate, xfer_dt))
                 if backlog[sid] <= 1.0:                     # buffer drained -> complete
                     backlog[sid] = 0.0
                     done[sid] = True
@@ -233,6 +238,8 @@ class Simulator:
                     self._free_session(sid, session, busy, t, "complete")
                     if self.tel is not None:
                         self.tel.note_event(t, "complete", sid, gid)
+
+            metrics.note_tx_step(tx_spans)
 
             # 5) waiting time: ready, has data, but not being served this step
             for sid in self.sats:

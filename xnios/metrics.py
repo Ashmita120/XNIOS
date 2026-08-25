@@ -71,6 +71,8 @@ class MetricsCollector:
         self.served_station_of = {}                           # sat_id -> first station served on
         self.beam_busy_time = {st: 0.0 for st in station_ids}  # beam-seconds busy
         self.station_active_time = {st: 0.0 for st in station_ids}  # >=1 beam busy
+        self.tx_beam_s = 0.0                                  # beam-seconds CARRYING data
+        self.tx_wall_s = 0.0                                  # wall time >=1 link carrying
 
         # --- resource / dynamics metrics (added after review) ---
         self.total_beams = sum(num_beams.values())
@@ -118,6 +120,29 @@ class MetricsCollector:
         self.beam_busy_time[station_id] += busy_beams * dt
         if busy_beams > 0:
             self.station_active_time[station_id] += dt
+
+    def note_tx_step(self, spans) -> None:
+        """Seconds each link actually CARRIED DATA this step.
+
+        Deliberately not `note_beam_busy`. That one counts beam occupancy from
+        the busy map at the end of the step, which is the right quantity for
+        utilisation but the wrong one for a rate:
+
+          * the step on which a transfer completes has already had its session
+            freed by then, so its beam time is never counted at all — and
+          * a step spent slewing onto a newly acquired satellite is charged in
+            full even though nothing moved.
+
+        Divide delivered bits by that and you get a mean rate ABOVE the link's
+        peak rate, which is impossible on its face. An 18.4 Gbit transfer that
+        ran 66.9 s at the 275 Mbps modcod ceiling was reported as 60 s and
+        306.7 Mbps. So the rate metrics get their own denominator, measured
+        where the bits are actually moved.
+        """
+        if not spans:
+            return
+        self.tx_beam_s += sum(spans)      # beam-seconds carrying
+        self.tx_wall_s += max(spans)      # wall time with >=1 link carrying
 
     def note_session_start(self, sat_id: str, station_id: str):
         """A (re)acquisition. Counts a handover only when the station changes."""
@@ -179,9 +204,14 @@ class MetricsCollector:
         mean_latency = sum(latencies) / len(latencies) if latencies else 0.0
 
         total_beam_seconds = sum(self.num_beams[st] for st in self.station_ids) * sim_time
-        beam_util = sum(self.beam_busy_time.values()) / total_beam_seconds if total_beam_seconds else 0.0
+        beam_util = (sum(self.beam_busy_time.values()) / total_beam_seconds
+                     if total_beam_seconds else 0.0)
         station_util = (sum(self.station_active_time.values())
                         / (len(self.station_ids) * sim_time)) if sim_time and self.station_ids else 0.0
+        # Occupancy (above) and carrying time (here) are different questions; see
+        # note_tx_step. Utilisation keeps the occupancy numbers so every published
+        # result reproduces; the rate metrics use the carrying ones.
+        active_tx_s, beam_busy_s = self.tx_wall_s, self.tx_beam_s
 
         # SLA: completed on or before deadline (sats without a deadline are trivially met)
         sla_ok, sla_n = 0, 0
@@ -225,7 +255,24 @@ class MetricsCollector:
         gb_per_kj = (total_delivered / 1e9) / energy_kj if energy_kj > 0 else 0.0
 
         summary = {
+            # Three different rates, and conflating them is how a 67-second
+            # 18.4 Gbit transfer got reported at 141 Mbps.
+            #
+            #   throughput_mbps  delivered / the WHOLE run, dead time included.
+            #                    A network-level figure: it answers "what did
+            #                    this network carry per second of operation",
+            #                    which is the right question for a scenario
+            #                    comparison and the wrong one for one request.
+            #   mean_rate_mbps   delivered / seconds a link was actually up.
+            #                    What an operator means by "how fast did my
+            #                    transfer go".
+            #   link_rate_mbps   delivered / beam-seconds. Per-beam rate, so it
+            #                    does not inflate when several beams run at once.
             "throughput_mbps": (total_delivered / sim_time) / 1e6 if sim_time else 0.0,
+            "mean_rate_mbps": (total_delivered / active_tx_s) / 1e6 if active_tx_s else 0.0,
+            "link_rate_mbps": (total_delivered / beam_busy_s) / 1e6 if beam_busy_s else 0.0,
+            "active_tx_s": active_tx_s,
+            "beam_busy_s": beam_busy_s,
             "delivered_gbit": total_delivered / 1e9,
             "completion_rate": completion_rate,
             "mean_wait_s": mean_wait,
