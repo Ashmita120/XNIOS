@@ -22,13 +22,6 @@ env/
 .ipynb_checkpoints/
 .pytest_cache/
 
-# --- Node / Next.js dashboard ----------------------------------------------
-node_modules/
-.next/
-out/
-*.tsbuildinfo
-dashboard/next-env.d.ts
-
 # --- OS / editor -----------------------------------------------------------
 .DS_Store
 Thumbs.db
