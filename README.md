@@ -257,26 +257,12 @@ several of each to compare; rows become `scheduler + bw + power + freq`.
 | 9 Weather | ✅ done — static + **live Open-Meteo** + **dynamic (Markov)** | `weather.py`, `weather_live.py` |
 | 10 Congestion | `random_scenario(n_sats=500, n_stations=20)` | `scenarios.py` |
 | 11 Failures | ✅ done — station/beam failures + self-healing + recovery metrics | `dynamics.py` |
-| 12 Prediction | forecast weather/demand; feed the scheduler | new `predict/` module |
-| 13 Optimisation | OR-Tools receding-horizon MPC | new scheduler |
-| 14 RL | wrap `Simulator` as a Gymnasium env | new `envs/` + SB3 |
-| 15–17 MARL / GNN / full X-NioS | multi-agent + graph policies | new schedulers |
 
 Add a new scheduler → run it on the **same** `scenarios` → append to the benchmark
 table. That table is the research result.
 
 ---
 
-## V2 — the AI-assisted twin
-
-V1 answered *"what did this run deliver?"*. V2 makes the twin **observe, explain
-and eventually decide**. The build order puts prediction late on purpose:
-
-```
-Telemetry ─► Features ─► Analytical forecast ─► Historical memory
-                                                      │
-                                          Decision engine ─► Prediction models ─► Planning
-```
 
 **Phase 1 (done): state awareness.**
 
@@ -299,7 +285,5 @@ results and the 13/13 validation are untouched. Health scores live *outside* the
 twin because a single score is a scalarisation, and `metrics.py` keeps the KPI
 vector a vector on purpose.
 
-Full guide, honest limits (BER is a derived uncoded-QPSK indicator; failure risk
-is observed state, not a forecast) and what comes next: **[DASHBOARD.md](DASHBOARD.md)**.
 ```
 ```
